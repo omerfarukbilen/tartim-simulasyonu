@@ -16,7 +16,7 @@ python -m http.server 8000
 
 Sonra tarayıcıda `http://localhost:8000` adresini açın. Windows'ta `python` bulunamazsa `py -m http.server 8000` kullanın. Port 8000 doluysa başka bir port (ör. 8080) verip adresi ona göre açın. Sunucuyu kapatmak için Ctrl+C.
 
-Depo private: klonlamak için makinede GitHub oturumu açık olmalı (`gh auth login`). İndirme yaklaşık 50 MB; klon diskte yaklaşık 105 MB yer kaplar.
+İndirme yaklaşık 50 MB; klon diskte yaklaşık 105 MB yer kaplar. Git yoksa GitHub'daki Code > Download ZIP ile indirip açılan klasörde aynı komutu çalıştırın.
 
 `index.html` dosyasına çift tıklayarak açmak çalışmaz; tarayıcı modelleri `file://` üzerinden yüklemez. Mutlaka bir yerel sunucuyla açın.
 
