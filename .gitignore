@@ -1,0 +1,6 @@
+.cert/
+security-report.md
+# kaynak dosyalar; simülasyon bunları yüklemiyor
+assets/gemini/
+assets/img[1-9].png
+assets/models/operator-static.glb

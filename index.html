@@ -1,0 +1,2597 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tartım İstasyonu Simülasyonu</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b1220; --panel:rgba(11,20,34,.82); --line:rgba(120,170,230,.18);
+  --text:#e8eef6; --muted:#93a7bd; --accent:#3aa0ff; --ok:#2ecc71; --err:#ff4d4f; --warn:#ffb020;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans",system-ui,sans-serif;overflow:hidden}
+#app{position:fixed;inset:0}
+#app canvas{display:block}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+
+/* ---------- intro ---------- */
+#intro{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;background:#05090f}
+#intro video,#intro .poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
+#intro .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,15,.94) 0%,rgba(5,9,15,.7) 45%,rgba(5,9,15,.15) 100%),linear-gradient(0deg,rgba(5,9,15,.9),transparent 50%)}
+#intro .content{position:relative;max-width:640px;padding:0 56px 64px}
+#intro .eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:16px}
+#intro h1{font-size:clamp(32px,4.6vw,56px);line-height:1.05;font-weight:700;letter-spacing:-.02em;margin-bottom:18px}
+#intro p{font-size:17px;line-height:1.55;color:#c3d1e0;margin-bottom:28px;max-width:540px}
+#intro .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px}
+#intro .chip{font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;color:#c3d1e0;background:rgba(255,255,255,.03)}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn{padding:14px 22px;border-radius:10px;font-weight:600;font-size:15px;transition:transform .15s,background .15s}
+.btn.primary{background:var(--accent);color:#04101f}
+.btn.primary:hover{background:#62b6ff}
+.btn.ghost{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.04)}
+.btn.ghost:hover{background:rgba(255,255,255,.1)}
+.btn:active{transform:scale(.97)}
+#loading{position:absolute;right:28px;bottom:24px;font-size:13px;color:var(--muted)}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10;opacity:0;transition:opacity .4s}
+#hud.on{opacity:1}
+#hud > *{pointer-events:auto}
+.glass{background:var(--panel);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px}
+#stepHead{position:absolute;left:20px;top:20px;padding:14px 18px;max-width:min(520px,calc(100vw - 40px))}
+#stepHead .n{font:600 12px "IBM Plex Mono",monospace;letter-spacing:.12em;color:var(--accent)}
+#stepHead .t{font-size:20px;font-weight:600;margin-top:4px}
+#steps{position:absolute;right:20px;top:20px;width:290px;max-height:calc(100vh - 220px);overflow:auto;padding:8px}
+#steps h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:8px 10px 6px;font-weight:600}
+#steps button{display:flex;gap:10px;width:100%;text-align:left;padding:7px 10px;border-radius:8px;font-size:13px;color:#b7c6d6;align-items:baseline}
+#steps button span{font:500 11px "IBM Plex Mono",monospace;color:#5f7790;min-width:20px}
+#steps button:hover{background:rgba(255,255,255,.05)}
+#steps button.done{color:#7f93a8}
+#steps button.done span{color:var(--ok)}
+#steps button.cur{background:rgba(58,160,255,.14);color:#fff}
+#steps button.cur span{color:var(--accent)}
+#bottom{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:min(880px,calc(100vw - 32px));display:flex;flex-direction:column;gap:10px}
+#caption{padding:16px 20px;font-size:17px;line-height:1.5;min-height:58px}
+#bar{height:3px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-top:12px}
+#bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+#controls{display:flex;gap:6px;padding:6px;align-items:center;flex-wrap:wrap}
+#controls button,#VRButton{height:38px;min-width:38px;padding:0 12px;border-radius:9px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;color:#d6e2ee}
+#controls button:hover{background:rgba(255,255,255,.08)}
+#controls button.on{background:rgba(58,160,255,.18);color:#fff}
+#controls .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+#controls .grow{flex:1}
+#controls svg{width:18px;height:18px}
+#VRButton{position:static!important;left:auto!important;bottom:auto!important;width:auto!important;border:1px solid rgba(58,160,255,.5)!important;background:rgba(58,160,255,.12)!important;font:500 13px "IBM Plex Sans",sans-serif!important;opacity:1!important;color:#d6e2ee!important;border-radius:9px!important;padding:0 14px!important}
+#VRButton.na{opacity:.45!important;cursor:default!important}
+#stepsToggle{display:none}
+
+/* end card */
+#endCard{position:fixed;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(5,9,15,.6)}
+#endCard.on{display:flex}
+#endCard .box{padding:32px 36px;max-width:520px;text-align:left}
+#endCard h2{font-size:26px;margin-bottom:10px}
+#endCard p{color:#c3d1e0;line-height:1.55;margin-bottom:22px}
+
+/* film */
+#film{position:fixed;inset:0;z-index:60;background:#000;display:none;align-items:center;justify-content:center}
+#film.on{display:flex}
+#film video{width:100%;height:100%;object-fit:contain}
+#film .cap{position:absolute;left:50%;bottom:48px;transform:translateX(-50%);padding:14px 22px;font-size:20px;font-weight:500;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
+#film .close{position:absolute;right:20px;top:20px;padding:10px 16px}
+#film .dots{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);display:flex;gap:6px}
+#film .dots i{width:28px;height:3px;border-radius:3px;background:rgba(255,255,255,.25)}
+#film .dots i.on{background:var(--accent)}
+
+
+/* operator mode */
+#opHud{position:fixed;inset:0;pointer-events:none;z-index:12;display:none}
+#opHud.on{display:block}
+#opHud > *{pointer-events:auto}
+#cross{position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5);display:none;pointer-events:none!important}
+#cross.on{display:block}
+#tipBox{position:absolute;transform:translateX(-50%);padding:5px 10px;border-radius:7px;background:rgba(9,18,31,.88);border:1px solid rgba(255,176,32,.6);font-size:13px;font-weight:600;white-space:nowrap;opacity:0;transition:opacity .12s;pointer-events:none!important}
+#instr{position:absolute;left:20px;top:20px;width:min(440px,calc(100vw - 40px));padding:16px 18px}
+#instr .n{font:600 12px "IBM Plex Mono",monospace;letter-spacing:.12em;color:var(--accent)}
+#instr .t{font-size:21px;font-weight:700;margin:4px 0 6px}
+#instr .d{font-size:15px;line-height:1.5;color:#c9d7e5}
+#tasks{position:absolute;right:20px;top:76px;width:270px;padding:8px 10px 10px;max-height:calc(100vh - 200px);overflow:auto}
+#tasks h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:6px 4px;font-weight:600}
+.tk{display:flex;gap:9px;align-items:center;font-size:13px;color:#8fa3b8;padding:4px 4px}
+.tk i{width:9px;height:9px;border-radius:50%;border:2px solid #4a6078;flex:none}
+.tk.cur{color:#fff;font-weight:600}.tk.cur i{border-color:var(--accent);background:var(--accent)}
+.tk.done{color:#7f93a8}.tk.done i{border-color:var(--ok);background:var(--ok)}
+#tasks .sub{margin:2px 0 6px 14px;padding-left:8px;border-left:1px solid var(--line)}
+#keys{position:absolute;left:20px;bottom:20px;max-width:min(620px,calc(100vw - 40px));padding:10px 14px;font-size:12px;line-height:1.7;color:#a9bbcd}
+#keys b{color:#fff;font-weight:600;margin-right:6px}
+#opTop{position:absolute;right:20px;top:20px;display:flex;gap:8px;align-items:center}
+#opTop .btn{padding:9px 14px;font-size:13px}
+#toast{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);padding:10px 16px;border-radius:10px;background:rgba(80,50,0,.85);border:1px solid rgba(255,176,32,.6);color:#ffe2a8;font-weight:600;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none!important}
+#opDone{position:fixed;inset:0;z-index:31;display:none;align-items:center;justify-content:center;background:rgba(5,9,15,.55)}
+#opDone.on{display:flex}
+#opDone .box{padding:32px 36px;max-width:520px}
+#opDone h2{font-size:26px;margin-bottom:10px}
+#opDone p{color:#c3d1e0;line-height:1.55;margin-bottom:22px}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .16s;z-index:40}
+@media (max-width:900px){#tasks{display:none}#keys{font-size:11px}}
+
+@media (max-width:900px){
+  #steps{display:none;top:auto;bottom:200px;max-height:50vh}
+  #steps.open{display:block}
+  #stepsToggle{display:inline-flex}
+  #intro .content{padding:0 16px 40px}
+  #caption{font-size:15px}
+  #stepHead .t{font-size:17px}
+  .hide-sm{display:none!important}
+}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<section id="intro">
+  <img class="poster" src="assets/img0.png" alt="">
+  <video id="introVideo" src="assets/v0.mp4" autoplay muted loop playsinline poster="assets/img0.png"></video>
+  <div class="shade"></div>
+  <div class="content">
+    <div class="eyebrow">Tartım ve reçete doğrulama</div>
+    <h1>ERP entegre tartım istasyonu</h1>
+    <p>Lot seçiminden batch QR etiketine kadar tartım süreci: barkodla hammadde doğrulama, iki terazi, tolerans kontrolü ve her adımın MIRA ERP'ye kaydı.</p>
+    <div class="chips">
+      <span class="chip">MIRA ERP · XML / XLS</span>
+      <span class="chip">Ağır + hassas terazi</span>
+      <span class="chip">Barkod ve QR izlenebilirlik</span>
+      <span class="chip">GMP uyumlu kabin</span>
+    </div>
+    <div class="btns">
+      <button class="btn primary" id="startBtn">Senaryoyu izle</button>
+      <button class="btn ghost" id="opBtn">Operatör olarak uygula</button>
+      <button class="btn ghost" id="filmBtn">Tanıtım filmi</button>
+    </div>
+  </div>
+  <div id="loading">3D sahne yükleniyor…</div>
+</section>
+
+<div id="hud">
+  <div id="stepHead" class="glass"><div class="n" id="stepNo">ADIM 01 / 19</div><div class="t" id="stepTitle">—</div></div>
+  <div id="steps" class="glass"><h3>Senaryo</h3><div id="stepList"></div></div>
+  <div id="bottom">
+    <div id="caption" class="glass"><div id="capText">—</div><div id="bar"><i id="barFill"></i></div></div>
+    <div id="controls" class="glass">
+      <button id="bPrev" title="Önceki adım"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button id="bPlay" title="Oynat / duraklat"><svg id="icPause" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg><svg id="icPlay" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M7 5v14l12-7z"/></svg></button>
+      <button id="bNext" title="Sonraki adım"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <button id="bRestart" title="Baştan başlat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+      <span class="sep"></span>
+      <button id="bSpeed" title="Hız">1×</button>
+      <button id="bCam" class="hide-sm" title="Kamera modu">Sinematik</button>
+      <button id="bTags" class="on" title="Cihaz etiketleri">Etiketler</button>
+      <button id="bSound" class="on" title="Ses ve anlatım">Ses</button>
+      <button id="stepsToggle">Adımlar</button>
+      <span class="grow"></span>
+      <button id="bOp">Operatör modu</button>
+      <button id="bFilm" class="hide-sm">Film</button>
+      <span id="vrSlot"></span>
+    </div>
+  </div>
+</div>
+
+
+<div id="opHud">
+  <div id="cross"></div>
+  <div id="tipBox"></div>
+  <div id="instr" class="glass"><div class="n" id="instrN">İŞ EMRİ</div><div class="t" id="instrT">—</div><div class="d" id="instrD"></div></div>
+  <div id="tasks" class="glass"><h3>Görevler</h3><div id="taskList"></div></div>
+  <div id="keys" class="glass"><b>Masaüstü</b> Sürükle: bak · WASD: yürü · Tık: kullan / okut · Basılı tut: dök · Sağ tık veya E: al / bırak · Mavi halka: ışınlan<br><b>Meta Quest</b> Tetik: kullan / okut / dök · Grip: al / bırak · Sol çubuk: yürü · Sağ çubuk: dön</div>
+  <div id="opTop"><button class="btn ghost" id="lockBtn">Fareyi kilitle</button><span id="opSlot"></span><button class="btn ghost" id="opExit">Çıkış</button></div>
+  <div id="toast"></div>
+</div>
+<div id="opDone"><div class="box glass">
+  <h2>İş emri tamamlandı</h2>
+  <p>Dört kalem tartıldı, batch streçlenip QR etiketlendi ve LOT 26-1042 MIRA ERP'de kapatıldı.</p>
+  <div class="btns"><button class="btn primary" id="opAgain">Tekrar uygula</button><button class="btn ghost" id="opDoneExit">Senaryoya dön</button></div>
+</div></div>
+<div id="fade"></div>
+
+<div id="endCard"><div class="box glass">
+  <h2>Simülasyon tamamlandı</h2>
+  <p>Dört kalemli reçete tartıldı, batch streçlenip QR etiketlendi ve iş emri MIRA ERP'de kapatıldı.</p>
+  <div class="btns"><button class="btn primary" id="againBtn">Baştan oynat</button><button class="btn ghost" id="endFilmBtn">Tanıtım filmi</button><button class="btn ghost" id="freeBtn">Serbest gez</button></div>
+</div></div>
+
+<div id="film">
+  <video id="filmVideo" playsinline muted></video>
+  <div class="cap glass" id="filmCap"></div>
+  <div class="dots" id="filmDots"></div>
+  <button class="close btn ghost" id="filmClose">Kapat</button>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const $ = id => document.getElementById(id);
+const PI = Math.PI;
+let opMode = false;
+// canvas textures (labels, tags, screen) need the web fonts before they are drawn
+await Promise.race([Promise.all(['400 20px "IBM Plex Sans"', '500 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"', '700 20px "IBM Plex Sans"', '500 20px "IBM Plex Mono"', '600 20px "IBM Plex Mono"'].map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 3000))]);
+
+/* ======================================================================
+   Renderer / scene
+   ====================================================================== */
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.84;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;   // PCF honours shadow.radius (soft LED-panel shadows); PCFSoft ignores it
+renderer.xr.enabled = true;
+renderer.xr.setFoveation?.(1);
+$('app').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xc7d0d9);
+scene.fog = new THREE.Fog(0xc7d0d9, 30, 80);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 200);
+const rig = new THREE.Group(); rig.add(camera); scene.add(rig);
+camera.position.set(-2.6, 1.5, 2.9);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.enabled = false;
+controls.maxPolarAngle = PI * 0.495; controls.minDistance = 0.6; controls.maxDistance = 30;
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* lights */
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x2a3038, 0.14));
+// indoor hall: high-bay light from almost straight above, short soft shadows
+const sun = new THREE.DirectionalLight(0xf6f9ff, .9);
+sun.position.set(-2, 16, -1); sun.castShadow = true;
+Object.assign(sun.shadow.camera, { left: -15, right: 12, top: 10, bottom: -10, near: 1, far: 40 });
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 5;
+scene.add(sun);
+for (const [x, z] of [[-2.9, -3.4], [-.7, -3.4], [-2.9, -1.8], [-.7, -1.8]]) {
+  const l = new THREE.PointLight(0xeef4ff, 1.2, 6, 1.6); l.position.set(x, 2.45, z); scene.add(l);
+}
+for (const [x, z] of [[-9, -1], [-9, 3], [-6, -4], [-11.5, -3], [-2.2, 1.8], [-5.2, 1.2], [1.2, 1.4]]) {
+  const l = new THREE.PointLight(0xf2f6ff, 11, 14, 1.4); l.position.set(x, 5.4, z); scene.add(l);
+}
+
+/* ======================================================================
+   Materials / helpers
+   ====================================================================== */
+const std = (color, roughness = .6, metalness = 0, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
+const M = {
+  concrete: std(0x5f666e, .5), boothFloor: std(0xe8ecef, .18), office: std(0x5b636d, .7),
+  wall: std(0xf2f4f6, .55), wallOut: std(0x4a535e, .9), steel: std(0xd3d8dd, .24, .85), steelDark: std(0x8b9199, .4, 1),
+  rackBlue: std(0x1f4fa8, .5, .3), rackOrange: std(0xe0661e, .5, .2), kraft: std(0xc59b6b, .92), drum: std(0x1d4fb5, .35),
+  wood: std(0xb08957, .85), white: std(0xf6f7f9, .45), whiteMatte: std(0xf1f3f5, .8), dark: std(0x262b31, .5), black: std(0x15181c, .4),
+  lid: std(0x2a6fd6, .45), yellow: std(0xf2c230, .6), hepa: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xf4f8ff, emissiveIntensity: 4.5 }),
+  grille: std(0xd9dde1, .4, .6), pallet: std(0xe9edf0, .55), powder: std(0xf4efe4, .95)
+};
+/* Higgsfield textures (assets/tex) */
+const texLoader = new THREE.TextureLoader(), texCache = {};
+function TX(name, rx = 1, ry = rx, color = true) {
+  const key = name + (color ? '' : '#');
+  let entry = texCache[key];
+  if (!entry) {
+    entry = texCache[key] = { clones: [], loaded: false };
+    entry.base = texLoader.load('assets/tex/' + name + '.jpg', () => { entry.loaded = true; entry.clones.forEach(c => c.needsUpdate = true); });
+  }
+  const t = entry.base.clone(); t.source = entry.base.source;
+  if (entry.loaded) t.needsUpdate = true; else entry.clones.push(t);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.anisotropy = 8;
+  t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace; return t;
+}
+function applyTex(mat, name, rx, ry, { bump = 0, color = 0xffffff, rough } = {}) {
+  mat.map = TX(name, rx, ry); mat.color.setHex(color);
+  if (bump) { mat.bumpMap = TX(name + '_bump', rx, ry, false); mat.bumpScale = bump; }
+  if (rough !== undefined) mat.roughness = rough;
+  mat.needsUpdate = true; return mat;
+}
+applyTex(M.concrete, 'concrete', 30, 20, { bump: .3, color: 0xdde2e8, rough: .36 });   // sealed, polished hall floor
+// clean satin epoxy (no baked hotspots); the gloss comes from the booth env + the additive floor reflection
+M.boothFloor.color.setHex(0x8f959c); M.boothFloor.roughness = .16;
+M.boothFloor.bumpMap = TX('epoxy_bump', 2.2, 2.1, false); M.boothFloor.bumpScale = .02;
+applyTex(M.office, 'concrete', 3, 3, { bump: 1, color: 0x8d949b, rough: .7 });
+M.wall.color.setHex(0xb9bfc8); M.wall.roughness = .32;                          // satin PVC cleanroom panels
+applyTex(M.wallOut, 'sandwich', 6, 2, { bump: .8, color: 0xe6e9ec, rough: .55 });
+// brushed steel: true metal, grain from the roughness map (bump only as a hint)
+for (const [m, c, r] of [[M.steel, 0xd0d5da, .28], [M.steelDark, 0xaab0b6, .34]]) {
+  m.color.setHex(c); m.metalness = 1; m.roughness = r;
+  m.bumpMap = TX('steel_bump', 1, 1, false); m.bumpScale = .03; m.roughnessMap = TX('steel', 1, 1, false); m.needsUpdate = true;
+}
+applyTex(M.kraft, 'kraft', 1, 1, { bump: .8, color: 0xf3eadb, rough: .9 });
+applyTex(M.drum, 'drum', 2, 1, { bump: .6, color: 0xc4d0ea, rough: .3 });
+applyTex(M.wood, 'wood', 1, 1, { bump: 2, rough: .9 });
+applyTex(M.dark, 'darkmetal', 1, 1, { bump: .6, color: 0x8a8f96, rough: .55 });
+applyTex(M.pallet, 'plasticpallet', 3, 2.5, { bump: 1.2, rough: .5 });
+applyTex(M.powder, 'powder', 1, 1, { bump: 1.5, rough: .97 });
+applyTex(M.grille, 'hepa', 1.5, 1, { bump: .3, color: 0xe2e6ea, rough: .45 });
+M.whiteMatte.color.setHex(0xd2d6dc); M.whiteMatte.emissive.setHex(0xffffff); M.whiteMatte.emissiveIntensity = .05;   // bounce light the down-facing panels never give the ceiling
+const sackPrintMat = new THREE.MeshStandardMaterial({ map: TX('sackprint'), roughness: .95, transparent: true, opacity: .92, polygonOffset: true, polygonOffsetFactor: -1 });
+function mesh(geo, mat, x = 0, y = 0, z = 0, parent = scene, shadow = true) {
+  const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z);
+  if (shadow) { m.castShadow = true; m.receiveShadow = true; }
+  parent.add(m); return m;
+}
+const box = (w, h, d, mat, x, y, z, parent = scene, shadow = true) => mesh(new THREE.BoxGeometry(w, h, d), mat, x, y, z, parent, shadow);
+const cyl = (rt, rb, h, mat, x, y, z, parent = scene, seg = 24) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat, x, y, z, parent);
+
+/* canvas helpers */
+const FONT = '"IBM Plex Sans", system-ui, sans-serif', MONO = '"IBM Plex Mono", ui-monospace, monospace';
+function T(c, s, x, y, size, color, weight = 400, align = 'left', font = FONT) {
+  c.font = `${weight} ${size}px ${font}`; c.fillStyle = color; c.textAlign = align; c.fillText(s, x, y);
+}
+function RR(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+function canvasTex(w, h) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+  return { cv, c: cv.getContext('2d'), tex };
+}
+function seeded(str) { let h = 2166136261; for (const ch of str) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296; }
+function drawBarcode(c, x, y, w, h, code) {
+  const r = seeded(code); let cx = x; c.fillStyle = '#111';
+  while (cx < x + w - 4) { const bw = 1 + Math.floor(r() * 3.2) * (w / 160); if (r() > .42) c.fillRect(cx, y, bw, h); cx += bw + w / 220; }
+}
+function drawQR(c, x, y, size, code) {
+  const n = 25, s = size / n, r = seeded(code);
+  c.fillStyle = '#fff'; c.fillRect(x - s, y - s, size + 2 * s, size + 2 * s); c.fillStyle = '#111';
+  const finder = (fx, fy) => { c.fillRect(x + fx * s, y + fy * s, 7 * s, 7 * s); c.fillStyle = '#fff'; c.fillRect(x + (fx + 1) * s, y + (fy + 1) * s, 5 * s, 5 * s); c.fillStyle = '#111'; c.fillRect(x + (fx + 2) * s, y + (fy + 2) * s, 3 * s, 3 * s); };
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const inF = (i < 8 && j < 8) || (i > n - 9 && j < 8) || (i < 8 && j > n - 9);
+    if (!inF && r() > .52) c.fillRect(x + i * s, y + j * s, s + .5, s + .5);
+  }
+  finder(0, 0); finder(n - 7, 0); finder(0, n - 7);
+}
+const fmt = (v, unit) => unit === 'g' ? v.toFixed(1).replace('.', ',') : v.toFixed(3).replace('.', ',');
+
+function makeTag(title, sub) {
+  const h = sub ? 150 : 100, { cv, c, tex } = canvasTex(512, h);
+  c.fillStyle = 'rgba(9,18,31,0.84)'; RR(c, 4, 4, 504, h - 8, 22); c.fill();
+  c.strokeStyle = 'rgba(90,170,255,.55)'; c.lineWidth = 3; c.stroke();
+  T(c, title, 28, 60, 40, '#ffffff', 600);
+  if (sub) T(c, sub, 28, 112, 30, '#9fc3e6');
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  sp.renderOrder = 20; sp.scale.set(1.0, h / 512, 1); return sp;
+}
+
+/* ======================================================================
+   Sim clock, tweens, abort
+   ====================================================================== */
+const ABORT = Symbol('abort');
+const sim = { time: 0, speed: 1, mul: 1, paused: false, instant: false, token: 0 };
+const tweens = [];
+const easeIO = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const easeOut = k => 1 - Math.pow(1 - k, 3);
+const lin = k => k;
+function tween(dur, fn, ease = easeIO) {
+  if (sim.instant || dur <= 0) { fn(1); return Promise.resolve(); }
+  return new Promise((res, rej) => tweens.push({ t0: sim.time, dur, fn, ease, res, rej }));
+}
+const wait = s => tween(s, () => {}, lin);
+function processTweens() {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const w = tweens[i], k = (sim.time - w.t0) / w.dur;
+    if (k >= 1) { w.fn(1); tweens.splice(i, 1); w.res(); } else w.fn(w.ease(Math.max(0, k)));
+  }
+}
+function abortAll() { sim.token++; const list = tweens.splice(0); list.forEach(w => w.rej(ABORT)); }
+
+/* ======================================================================
+   Audio + speech
+   ====================================================================== */
+let actx = null, soundOn = true, trVoice = null;
+function tone(f, d, type = 'sine', v = .12, delay = 0) {
+  if (!soundOn || sim.instant) return;
+  actx ??= new AudioContext();
+  const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime + delay;
+  o.type = type; o.frequency.value = f; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + .02);
+}
+const sfx = {
+  ok: () => { tone(1320, .09, 'square', .05); tone(1760, .12, 'square', .05, .11); },
+  err: () => { tone(180, .25, 'sawtooth', .09); tone(150, .35, 'sawtooth', .09, .28); },
+  warn: () => { tone(880, .12, 'triangle', .1); tone(880, .12, 'triangle', .1, .2); },
+  click: () => tone(2200, .03, 'square', .04),
+  print: () => { for (let i = 0; i < 9; i++) tone(90 + Math.random() * 40, .05, 'square', .03, i * .07); },
+  data: () => tone(660, .08, 'sine', .05),
+};
+function pickVoice() { const vs = speechSynthesis.getVoices(); trVoice = vs.find(v => /^tr/i.test(v.lang)) || null; }
+if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+let speaking = false;
+function speak(text) {
+  if (!soundOn || !trVoice || sim.instant) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text); u.voice = trVoice; u.lang = trVoice.lang; u.rate = 1.03 * Math.min(sim.speed, 1.5);
+  speaking = true; u.onend = u.onerror = () => speaking = false; speechSynthesis.speak(u);
+}
+
+/* ======================================================================
+   Environment: warehouse, booth, ERP
+   ====================================================================== */
+// floors
+// Compact booth like the Higgsfield reference photo: 3.2 x 2.8 m, 2.6 m high, entered from the depo through a front double door
+const RX0 = -3.4, RX1 = -.2, RZ0 = -4, RZ1 = -1.2, RH = 2.6, RCX = (RX0 + RX1) / 2, RCZ = (RZ0 + RZ1) / 2, RW = RX1 - RX0, RD = RZ1 - RZ0;
+const inBooth = (x, z) => x > RX0 && x < RX1 && z > RZ0 && z < RZ1;
+const floorMesh = mesh(new THREE.PlaneGeometry(120, 80).rotateX(-PI / 2), M.concrete, -2, 0, 0, scene, false); floorMesh.receiveShadow = true;
+const boothFloor = box(RW, .02, RD, M.boothFloor, RCX, .01, RCZ); boothFloor.castShadow = false;
+const officeFloor = box(4, .015, 4, M.office, 2.6, .008, -2.4); officeFloor.castShadow = false;
+// factory hall backdrop + image-based lighting from the Higgsfield panorama
+const BR = 34, backdrop = new THREE.Mesh(new THREE.CylinderGeometry(BR, BR, PI * BR / 2, 72, 1, true), new THREE.MeshBasicMaterial({ color: 0xd4dae0, side: THREE.BackSide, fog: false }));
+backdrop.position.set(-2, 1.8, 0); backdrop.visible = false; scene.add(backdrop);
+texLoader.load('assets/tex/hall.jpg', t => {
+  t.colorSpace = THREE.SRGBColorSpace; t.mapping = THREE.EquirectangularReflectionMapping;
+  scene.environment = pmrem.fromEquirectangular(t).texture;
+  const bt = t.clone(); bt.mapping = THREE.UVMapping; bt.wrapS = THREE.MirroredRepeatWrapping; bt.repeat.set(2, 1); bt.needsUpdate = true;
+  backdrop.material.map = bt; backdrop.material.needsUpdate = true; backdrop.visible = true;
+});
+// GMP signs (inside on the left wall, outside on the left wall, outside next to the door)
+for (const [x, z, ry] of [[RX0 + .06, -2.75, PI / 2], [RX0 - .06, -2.6, -PI / 2], [-.48, RZ1 + .06, 0]]) {
+  const sg = mesh(new THREE.PlaneGeometry(.42, .56), new THREE.MeshStandardMaterial({ map: TX('poster'), roughness: .5 }), x, 1.55, z, scene, false); sg.rotation.y = ry;
+}
+// floor markings in depo
+for (const [w, d, x, z] of [[.08, 3.4, -4.45, -3.1], [7.6, .08, -9.0, -1.72], [7.6, .08, -9.0, 1.95]]) box(w, .005, d, M.yellow, x, .006, z).castShadow = false;
+// outer warehouse walls
+box(26, 6, .3, M.wallOut, -2, 3, -6.2).castShadow = false;
+box(.3, 6, 13, M.wallOut, -14.2, 3, 0.3).castShadow = false;
+
+// booth walls (do not cast shadows so the interior stays bright)
+const DOOR_X0 = -2.95, DOOR_X1 = -.8, DOOR_XC = (DOOR_X0 + DOOR_X1) / 2, DOOR_H = 2.1;
+const boothWalls = new THREE.Group(); scene.add(boothWalls);
+const wallBox = (w, h, d, x, y, z) => { const m = box(w, h, d, M.wall, x, y, z, boothWalls); m.castShadow = false; return m; };
+wallBox(RW + .1, RH, .1, RCX, RH / 2, RZ0);                                                   // back
+wallBox(.1, RH, RD + .1, RX0, RH / 2, RCZ);                                                   // left
+wallBox(.1, RH, RD + .1, RX1, RH / 2, RCZ);                                                   // right
+wallBox(DOOR_X0 - RX0 + .05, RH, .1, (RX0 - .05 + DOOR_X0) / 2, RH / 2, RZ1);                 // front, left of the door
+wallBox(RX1 + .05 - DOOR_X1, RH, .1, (DOOR_X1 + RX1 + .05) / 2, RH / 2, RZ1);                 // front, right of the door
+wallBox(DOOR_X1 - DOOR_X0, RH - DOOR_H, .1, DOOR_XC, DOOR_H + (RH - DOOR_H) / 2, RZ1);       // lintel
+// stainless door frame, threshold and exterior corner trims
+for (const x of [DOOR_X0, DOOR_X1]) box(.05, DOOR_H, .14, M.steel, x, DOOR_H / 2, RZ1, boothWalls);
+box(DOOR_X1 - DOOR_X0 + .05, .05, .14, M.steel, DOOR_XC, DOOR_H, RZ1, boothWalls);
+box(DOOR_X1 - DOOR_X0, .008, .14, M.steel, DOOR_XC, .004, RZ1, boothWalls).castShadow = false;
+for (const [x, z] of [[RX0 - .05, RZ0 - .05], [RX1 + .05, RZ0 - .05], [RX0 - .05, RZ1 + .05], [RX1 + .05, RZ1 + .05]]) box(.05, RH, .05, M.steel, x, RH / 2, z, boothWalls).castShadow = false;
+for (const [w, d, x, z] of [[RW + .15, .05, RCX, RZ0 - .055], [RW + .15, .05, RCX, RZ1 + .055], [.05, RD + .15, RX0 - .055, RCZ], [.05, RD + .15, RX1 + .055, RCZ]]) box(w, .1, d, M.steel, x, .05, z, boothWalls).castShadow = false;   // exterior kick band
+// glass reflections: a transparent standard material scales its specular by opacity, so add a faint additive mirror layer
+M.glassRefl = new THREE.MeshStandardMaterial({ color: 0x5a6068, metalness: 1, roughness: .04, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+M.glassRefl.userData.keepEnv = true;
+// cleanroom wall panel seams: flush hairline grooves (as in the reference photo)
+const seamMat = std(0xb3b8bd, .9); seamMat.userData.keepEnv = true; seamMat.envMapIntensity = 0;
+for (let x = RX0 + RW / 4; x < RX1 - .1; x += RW / 4) box(.004, RH - .15, .0006, seamMat, x, RH / 2 + .07, RZ0 + .0503, boothWalls).castShadow = false;
+for (let z = RZ0 + RD / 3; z < RZ1 - .1; z += RD / 3) for (const x of [RX0 + .0503, RX1 - .0503]) box(.0006, RH - .15, .004, seamMat, x, RH / 2 + .07, z, boothWalls).castShadow = false;
+// hygienic coving at the floor/wall junction (cleanroom detail, as in the reference): a touch darker than the walls
+M.coving = std(0xb0b6be, .35);
+for (const [len, x, z, ry] of [[RW, RCX, RZ0 + .09, 0], [RD, RX1 - .09, RCZ, -PI / 2], [RD, RX0 + .09, RCZ, PI / 2], [DOOR_X0 - RX0 - .05, (RX0 + DOOR_X0) / 2, RZ1 - .09, PI], [RX1 - DOOR_X1 - .05, (DOOR_X1 + RX1) / 2, RZ1 - .09, PI]]) {
+  const cv = mesh(new THREE.PlaneGeometry(len, .1), M.coving, x, .035, z, boothWalls, false); cv.rotation.set(-PI / 4, ry, 0, 'YXZ'); cv.receiveShadow = true;
+}
+// double door (both leaves open into the depo, as in the reference): satin #4 stainless with vertical grain,
+// framed vision panel near the lock edge, lever handles and three hinges per leaf
+M.doorSteel = new THREE.MeshPhysicalMaterial({ color: 0xc8cdd2, metalness: 1, roughness: .32, anisotropy: .6, anisotropyRotation: PI / 2, envMapIntensity: .65 }); M.doorSteel.userData.keepEnv = true;
+M.doorSteel.roughnessMap = TX('steel', 1, 2.5, false); M.doorSteel.roughnessMap.center.set(.5, .5); M.doorSteel.roughnessMap.rotation = PI / 2;
+const doorGlass = new THREE.MeshStandardMaterial({ color: 0x8fa3b2, roughness: .03, transparent: true, opacity: .32, depthWrite: false });
+function doorLeaf(hx, side) {   // side -1: hinged on the left (leaf extends +x), +1: hinged on the right (extends -x)
+  const g = new THREE.Group(); g.position.set(hx, 0, RZ1 + .06); scene.add(g);
+  const w = (DOOR_X1 - DOOR_X0) / 2 - .01, vx = -side * (w - .3), lx = -side * (w - .07);
+  box(w, DOOR_H - .02, .05, M.doorSteel, -side * w / 2, (DOOR_H - .02) / 2, 0, g);
+  box(.32, .55, .012, doorGlass, vx, 1.55, 0, g);
+  for (const sz of [-1, 1]) {
+    mesh(new THREE.PlaneGeometry(.32, .55), M.glassRefl, vx, 1.55, sz * .0065, g, false);
+    for (const [bw, bh, dx, y] of [[.36, .02, 0, 1.835], [.36, .02, 0, 1.265], [.02, .55, -.17, 1.55], [.02, .55, .17, 1.55]]) box(bw, bh, .012, M.doorSteel, vx + dx, y, sz * .027, g).castShadow = false;
+    box(.05, .28, .012, M.steelDark, lx, 1.05, sz * .031, g); box(.14, .02, .022, M.steelDark, lx + side * .05, 1.1, sz * .046, g);
+  }
+  for (const y of [.25, 1.05, 1.85]) cyl(.012, .012, .11, M.steel, 0, y, -.03, g);
+  return g;
+}
+const doorL = doorLeaf(DOOR_X0, -1), doorR = doorLeaf(DOOR_X1, 1);
+doorL.rotation.y = -PI / 2 - .1; doorR.rotation.y = PI / 2 + .1;
+// booth ceiling (hidden from high camera angles): 600 mm grid, 4 framed LED panels + central HEPA diffuser
+const ceiling = new THREE.Group(); scene.add(ceiling);
+{
+  const { c, tex } = canvasTex(64, 64); c.fillStyle = '#ffffff'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#d3d7db'; c.fillRect(0, 0, 64, 2); c.fillRect(0, 0, 2, 64);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(RW / .6, RD / .6); M.whiteMatte.map = tex; M.whiteMatte.needsUpdate = true;
+}
+const ceilMesh = box(RW, .06, RD, M.whiteMatte, RCX, RH + .03, RCZ, ceiling); ceilMesh.castShadow = false;
+const panelFrame = std(0xf0f2f4, .4);
+// soft glow around each LED panel (no post-processing bloom, so it also works in VR)
+const haloTex = (() => { const { c, tex } = canvasTex(128, 128); const g = c.createRadialGradient(64, 64, 20, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.45, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); return tex; })();
+const haloMat = new THREE.MeshBasicMaterial({ map: haloTex, color: 0xeef4ff, transparent: true, opacity: .16, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const PANELS = [[RX0 + .5, RZ0 + .6], [RX1 - .5, RZ0 + .6], [RX0 + .5, RZ1 - .6], [RX1 - .5, RZ1 - .6]];   // 2 x 2 around the central HEPA diffuser
+for (const [x, z] of PANELS) {
+  const p = box(.6, .02, .6, M.hepa, x, RH - .005, z, ceiling); p.castShadow = false;
+  const halo = mesh(new THREE.PlaneGeometry(1.0, 1.0), haloMat, x, RH - .018, z, ceiling, false); halo.rotation.x = PI / 2;
+  for (const [w, d, dx, dz] of [[.65, .025, 0, -.3125], [.65, .025, 0, .3125], [.025, .6, -.3125, 0], [.025, .6, .3125, 0]]) box(w, .024, d, panelFrame, x + dx, RH - .008, z + dz, ceiling).castShadow = false;
+}
+box(1.4, .03, .75, M.grille, RCX, RH - .01, RCZ, ceiling).castShadow = false;
+for (const [w, d, dx, dz] of [[1.46, .03, 0, -.39], [1.46, .03, 0, .39], [.03, .75, -.715, 0], [.03, .75, .715, 0]]) box(w, .034, d, M.steel, RCX + dx, RH - .012, RCZ + dz, ceiling).castShadow = false;
+// sign above door (depo side)
+{
+  const { c, tex } = canvasTex(512, 128);
+  c.fillStyle = '#123a6b'; c.fillRect(0, 0, 512, 128); T(c, 'TARTIM KABİNİ', 256, 62, 44, '#fff', 700, 'center'); T(c, 'GMP · yetkisiz giriş yasaktır', 256, 104, 26, '#bcd6f2', 400, 'center');
+  mesh(new THREE.PlaneGeometry(1.2, .3), new THREE.MeshBasicMaterial({ map: tex }), DOOR_XC, 2.35, RZ1 + .06, scene, false);
+}
+
+// pallets & racks
+// wooden block pallet: 5 top deck boards with gaps, 3 stringer boards, 9 blocks, 3 bottom boards (one merged mesh, top at .15)
+const palletGeo = (() => {
+  const parts = [], add = (w, h, d, x, y, z) => parts.push(new THREE.BoxGeometry(w, h, d).translate(x, y, z));
+  for (let i = 0; i < 5; i++) add(1.2, .022, .145, 0, .139, -.4275 + i * .21375);
+  for (const bx of [-.525, 0, .525]) { add(.145, .022, 1.0, bx, .117, 0); add(.145, .022, 1.0, bx, .017, 0); }
+  for (const bx of [-.525, 0, .525]) for (const bz of [-.43, 0, .43]) add(.145, .078, .14, bx, .067, bz);
+  return mergeGeometries(parts);
+})();
+function woodPallet(parent, x, y, z) {
+  const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g);
+  mesh(palletGeo, M.wood, 0, 0, 0, g);
+  return g;
+}
+const sackGeo = new RoundedBoxGeometry(.72, .17, .46, 3, .06);
+// 200 L HDPE drum: rolled chimes top and bottom, two rolling hoops, slightly domed lid (lathe profile)
+const drumGeo = new THREE.LatheGeometry([[0, 0], [.235, 0], [.247, .012], [.247, .03], [.24, .045], [.24, .28], [.248, .29], [.248, .31], [.24, .32], [.24, .56], [.248, .57], [.248, .59], [.24, .6], [.24, .835], [.247, .85], [.247, .868], [.235, .88], [.12, .885], [0, .888]].map(([r, y]) => new THREE.Vector2(r, y - .44)), 32);
+function rack(x, z, ry, bays = 2) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = ry; scene.add(g);
+  const len = bays * 1.4, depth = 1.05, h = 4.2;
+  for (let i = 0; i <= bays; i++) for (const uz of [-depth / 2, depth / 2]) box(.08, h, .08, M.rackBlue, -len / 2 + i * 1.4, h / 2, uz, g);
+  for (const ly of [1.42, 2.82]) for (const uz of [-depth / 2, depth / 2]) box(len, .1, .06, M.rackOrange, 0, ly, uz, g);
+  for (let i = 0; i <= bays; i++) {   // frame bracing between the front and back uprights, base plates
+    const fx = -len / 2 + i * 1.4;
+    [.25, 1.55, 2.85].forEach((y0, k) => { box(.03, 1.59, .025, M.rackBlue, fx, y0 + .6, 0, g).rotation.x = (k % 2 ? 1 : -1) * .719; });
+    for (const y of [.12, h - .1]) box(.03, .03, depth, M.rackBlue, fx, y, 0, g);
+    for (const uz of [-depth / 2, depth / 2]) box(.14, .008, .12, M.rackBlue, fx, .004, uz, g).castShadow = false;
+  }
+  [0, 1.47, 2.87].forEach((ly, li) => {
+    for (let b = 0; b < bays; b++) {
+      const p = woodPallet(g, -len / 2 + .7 + b * 1.4, ly, 0);
+      if ((li + b + Math.round(x)) % 3 === 0) { for (const dx of [-.29, .29]) for (const dz of [-.25, .25]) mesh(drumGeo, M.drum, dx, .59, dz, p); }
+      else for (let l = 0; l < 3; l++) for (const dz of [-.24, .24]) {
+        const s = mesh(sackGeo, M.kraft, (Math.random() - .5) * .03, .235 + l * .17, dz + (Math.random() - .5) * .02, p);
+        s.rotation.y = (l % 2) * .04 + (Math.random() - .5) * .08; s.scale.set(.97 + Math.random() * .06, 1, .97 + Math.random() * .05);
+        if (l === 2) { const pr = mesh(new THREE.PlaneGeometry(.6, .4), sackPrintMat, 0, .0862, 0, s, false); pr.rotation.x = -PI / 2; }
+      }
+    }
+  });
+}
+rack(-11.6, -5.3, 0, 3); rack(-7.2, -5.3, 0, 2); rack(-13.4, 0.5, PI / 2, 3); rack(-5.2, -3.2, PI / 2, 2);   // the last one lines the left of the reference view
+
+// staging pallet + jar table in depo, right outside the door
+const staging = woodPallet(scene, -6.6, 0, -1.0);
+const jarTable = new THREE.Group(); jarTable.position.set(-6.4, 0, .6); scene.add(jarTable);
+box(.8, .03, .5, M.steel, 0, .8, 0, jarTable); for (const [dx, dz] of [[-.37, -.22], [.37, -.22], [-.37, .22], [.37, .22]]) box(.03, .8, .03, M.steel, dx, .4, dz, jarTable);
+
+// sehpa (sack stand) inside booth, next to the door
+const sehpa = new THREE.Group(); sehpa.position.set(-3.0, 0, -1.95); scene.add(sehpa);
+box(.56, .03, .56, M.steel, 0, .55, 0, sehpa); for (const [dx, dz] of [[-.25, -.25], [.25, -.25], [-.25, .25], [.25, .25]]) box(.03, .55, .03, M.steel, dx, .275, dz, sehpa);
+// container shelf on the right wall
+const shelf = new THREE.Group(); shelf.position.set(-.46, 0, -1.75); scene.add(shelf);
+for (const y of [.35, .95]) box(.42, .025, .95, M.steel, 0, y, 0, shelf);
+for (const [dx, dz] of [[-.19, -.45], [.19, -.45], [-.19, .45], [.19, .45]]) box(.025, 1.0, .025, M.steel, dx, .5, dz, shelf);
+
+/* ---------- Terazi 1 : floor platform scale (back-left, as in the reference) ---------- */
+const T1 = new THREE.Group(); T1.position.set(-2.65, 0, -3.2); scene.add(T1);
+box(1.0, .07, 1.0, M.steel, 0, .085, 0, T1);
+for (const [dx, dz] of [[-.45, -.45], [.45, -.45], [-.45, .45], [.45, .45]]) cyl(.035, .045, .05, M.black, dx, .025, dz, T1);
+const T1top = new THREE.Object3D(); T1top.position.set(0, .12, 0); T1.add(T1top);
+const T1col = new THREE.Group(); T1col.position.set(-2.04, 0, -3.05); T1col.rotation.y = -.96; scene.add(T1col);   // beside the platform, facing the operator
+cyl(.03, .03, 1.05, M.steel, 0, .525, 0, T1col); cyl(.16, .18, .03, M.steel, 0, .015, 0, T1col);
+box(.34, .22, .09, M.steel, 0, 1.15, 0, T1col);
+const T1disp = canvasTex(256, 96);
+mesh(new THREE.PlaneGeometry(.26, .0975), new THREE.MeshBasicMaterial({ map: T1disp.tex, toneMapped: false }), 0, 1.17, .046, T1col, false);
+const T1btn = cyl(.022, .022, .02, std(0x22c55e, .4, 0, { emissive: 0x16a34a, emissiveIntensity: .5 }), .12, 1.08, .05, T1col); T1btn.rotation.x = PI / 2;
+const T1tare = cyl(.022, .022, .02, std(0xf2c230, .4, 0, { emissive: 0xb38600, emissiveIntensity: .4 }), -.12, 1.08, .05, T1col); T1tare.rotation.x = PI / 2;
+const T1beacon = cyl(.025, .025, .07, new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0x000000 }), 0, 1.3, 0, T1col);
+
+/* ---------- bench (back-right), Terazi 2, printer ---------- */
+const bench = new THREE.Group(); bench.position.set(-1.03, 0, -3.6); scene.add(bench);
+box(1.8, .04, .7, M.steel, 0, .88, 0, bench); box(1.7, .025, .6, M.steel, 0, .25, 0, bench);
+for (const [dx, dz] of [[-.85, -.3], [.85, -.3], [-.85, .3], [.85, .3]]) box(.035, .88, .035, M.steel, dx, .44, dz, bench);
+const T2 = new THREE.Group(); T2.position.set(-1.5, .9, -3.6); scene.add(T2);
+box(.3, .08, .36, M.white, 0, .04, 0, T2);
+box(.26, .05, .07, M.dark, 0, .06, .16, T2);
+cyl(.012, .012, .03, M.steel, 0, .095, 0, T2);
+cyl(.11, .11, .01, M.steel, 0, .113, 0, T2);
+const T2top = new THREE.Object3D(); T2top.position.set(0, .118, 0); T2.add(T2top);
+const T2disp = canvasTex(256, 80);
+const T2dm = mesh(new THREE.PlaneGeometry(.2, .0625), new THREE.MeshBasicMaterial({ map: T2disp.tex, toneMapped: false }), 0, .062, .196, T2, false); T2dm.rotation.x = -.5;
+const T2btn = cyl(.014, .014, .012, std(0x22c55e, .4, 0, { emissive: 0x16a34a, emissiveIntensity: .5 }), .12, .09, .14, T2);
+const T2tare = cyl(.014, .014, .012, std(0xf2c230, .4, 0, { emissive: 0xb38600, emissiveIntensity: .4 }), .04, .09, .14, T2);
+const T2beacon = cyl(.014, .014, .03, new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0x000000 }), -.12, .095, .14, T2);
+const printer = new THREE.Group(); printer.position.set(-.68, .9, -3.62); scene.add(printer);
+mesh(new RoundedBoxGeometry(.26, .2, .32, 3, .02), M.dark, 0, .1, 0, printer);
+box(.27, .02, .2, M.black, 0, .2, -.04, printer);
+box(.12, .006, .01, M.black, 0, .07, .161, printer);
+const printerLed = mesh(new THREE.CircleGeometry(.008, 12), new THREE.MeshBasicMaterial({ color: 0x22c55e }), .09, .16, .161, printer, false);
+
+/* ---------- Industrial panel PC on the right wall (arm mount, as in the reference) ---------- */
+const pc = new THREE.Group(); pc.position.set(-.27, 1.55, -2.85); pc.rotation.y = -PI / 2; scene.add(pc);
+mesh(new RoundedBoxGeometry(.66, .46, .06, 3, .015), M.steel, 0, 0, 0, pc);
+mesh(new RoundedBoxGeometry(.6, .4, .01, 2, .004), M.black, 0, 0, .029, pc);
+const scr = canvasTex(1280, 800);
+const screenMesh = mesh(new THREE.PlaneGeometry(.58, .3625), new THREE.MeshBasicMaterial({ map: scr.tex, toneMapped: false }), 0, 0, .0352, pc, false);
+box(.06, .06, .1, M.steel, .26, 0, -.08, pc); box(.1, .12, .02, M.steel, .26, 0, -.13, pc);
+const pcShelf = box(.22, .025, .5, M.steel, -.33, 1.0, -2.85);
+for (const z of [-3.05, -2.65]) {   // wall brackets: back plate + diagonal strut
+  box(.012, .13, .02, M.steel, -.255, .93, z);
+  box(.012, .2, .02, M.steel, -.3375, .935, z).rotation.z = .983;
+}
+const cradle = box(.09, .03, .12, M.black, -.4, .917, -3.42);
+
+/* ---------- Batch pallet (front-right inside the booth) ---------- */
+const PAL_XZ = [.1, .9];   // batch pallet in the aisle, right of the booth door (keeps the reference view clear)
+const batchPallet = new THREE.Group(); batchPallet.position.set(PAL_XZ[0], 0, PAL_XZ[1]); scene.add(batchPallet);
+mesh(new RoundedBoxGeometry(1.2, .14, 1.0, 2, .02), M.pallet, 0, .07, 0, batchPallet);
+const SLOTS = [[-.3, .14, -.22], [.3, .14, -.22], [-.3, .14, .24], [.3, .14, .24]];
+const wrap = mesh(new THREE.BoxGeometry(1.24, 1, 1.04), new THREE.MeshPhysicalMaterial({ color: 0xeaf4ff, roughness: .08, metalness: 0, transparent: true, opacity: .32, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }), 0, .14, 0, batchPallet, false);
+
+/* ---------- MIRA ERP (server + hologram), outside the right wall ---------- */
+const erp = new THREE.Group(); erp.position.set(1.6, 0, -2.6); scene.add(erp);
+mesh(new RoundedBoxGeometry(.65, 2.1, 1.0, 2, .02), M.black, 0, 1.05, 0, erp);
+const erpLeds = [];
+for (let i = 0; i < 10; i++) { const l = mesh(new THREE.PlaneGeometry(.35, .025), new THREE.MeshBasicMaterial({ color: 0x3aa0ff }), -.326, .4 + i * .15, 0, erp, false); l.rotation.y = -PI / 2; erpLeds.push(l); }
+{ // operator desk with monitor
+  const lam = std(0xd9d4cc, .6), desk = new THREE.Group(); desk.position.set(-1.0, 0, 1.0); erp.add(desk);
+  box(1.4, .03, .7, lam, 0, .735, 0, desk); box(1.3, .4, .02, M.steelDark, 0, .45, -.3, desk);
+  for (const [dx, dz] of [[-.66, -.31], [.66, -.31], [-.66, .31], [.66, .31]]) box(.04, .72, .04, M.steelDark, dx, .36, dz, desk);
+  mesh(new RoundedBoxGeometry(.56, .34, .03, 2, .008), M.black, 0, 1.06, -.12, desk); box(.04, .2, .04, M.dark, 0, .84, -.14, desk); box(.22, .012, .16, M.dark, 0, .756, -.12, desk);
+  const mon = mesh(new THREE.PlaneGeometry(.53, .31), new THREE.MeshBasicMaterial({ color: 0x0f2740 }), 0, 1.06, -.104, desk, false);
+  box(.44, .015, .15, M.dark, 0, .758, .12, desk);
+}
+const holo = canvasTex(1024, 600);
+const holoMesh = mesh(new THREE.PlaneGeometry(2.0, 1.17), new THREE.MeshBasicMaterial({ map: holo.tex, transparent: true, toneMapped: false, side: THREE.DoubleSide, depthWrite: false }), -.2, 3.25, .5, erp, false);
+holoMesh.rotation.y = -PI / 4;
+
+/* ---------- data links ---------- */
+const linkMat = new THREE.MeshBasicMaterial({ color: 0x3aa0ff, transparent: true, opacity: .07, toneMapped: false });
+const erpCurve = new THREE.CatmullRomCurve3([new THREE.Vector3(1.6, 2.15, -2.6), new THREE.Vector3(1.0, 3.1, -2.7), new THREE.Vector3(.2, 2.95, -2.8), new THREE.Vector3(-.12, 2.3, -2.85), new THREE.Vector3(-.2, 1.82, -2.85)]);
+mesh(new THREE.TubeGeometry(erpCurve, 80, .018, 8), linkMat, 0, 0, 0, scene, false).visible = false;
+function polyCurve(pts) { const cp = new THREE.CurvePath(); for (let i = 0; i < pts.length - 1; i++) cp.add(new THREE.LineCurve3(new THREE.Vector3(...pts[i]), new THREE.Vector3(...pts[i + 1]))); return cp; }
+const links = {
+  t1: polyCurve([[-.26, 1.8, -2.75], [-.26, 2.5, -2.75], [-2.04, 2.5, -2.75], [-2.04, 2.5, -3.05], [-2.04, 1.3, -3.05]]),
+  t2: polyCurve([[-.26, 1.8, -2.95], [-.26, 2.45, -2.95], [-.26, 2.45, -3.93], [-1.5, 2.45, -3.93], [-1.5, .97, -3.93], [-1.5, .97, -3.78]]),
+  printer: polyCurve([[-.26, 1.8, -3.0], [-.26, 2.4, -3.0], [-.26, 2.4, -3.92], [-.68, 2.4, -3.92], [-.68, 1.02, -3.92], [-.68, 1.02, -3.8]]),
+  scan: polyCurve([[-.26, 1.3, -2.85], [-.26, .95, -2.85], [-.26, .95, -3.42], [-.35, .95, -3.42]]),
+};
+for (const k in links) mesh(new THREE.TubeGeometry(links[k], 60, .0045, 6), linkMat, 0, 0, 0, scene, false).visible = false;
+
+/* moving glow dots along curves */
+const glowTex = (() => { const { c, tex } = canvasTex(64, 64); const g = c.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(.3, 'rgba(120,200,255,.9)'); g.addColorStop(1, 'rgba(58,160,255,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); return tex; })();
+const movers = [];
+function runAlong(curve, dir, dur, { color = 0x7cc4ff, size = .22, tag = null } = {}) {
+  if (sim.instant) return Promise.resolve();
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  sp.scale.set(size, size, 1); scene.add(sp);
+  let label = null; if (tag) { label = makeTag(tag); label.scale.multiplyScalar(.8); scene.add(label); }
+  const m = { curve, dir, sp, label }; movers.push(m);
+  const tick = k => { const t = dir > 0 ? k : 1 - k; const p = curve.getPointAt(t); sp.position.copy(p); if (label) label.position.copy(p).add(new THREE.Vector3(0, .32, 0)); };
+  tick(0);
+  const done = () => { scene.remove(sp); if (label) scene.remove(label); movers.splice(movers.indexOf(m), 1); };
+  return tween(dur, tick, easeIO).then(done, e => { done(); throw e; });
+}
+const pulse = (k, dir = -1) => { runAlong(links[k], dir, .7, { size: .1 }).catch(() => {}); };
+function clearMovers() { for (const m of movers.splice(0)) { scene.remove(m.sp); if (m.label) scene.remove(m.label); } }
+
+/* ======================================================================
+   Movable objects
+   ====================================================================== */
+const movables = [];
+function movable(obj, parent = scene) { parent.add(obj); obj.userData.init = { parent, pos: obj.position.clone(), quat: obj.quaternion.clone(), scale: obj.scale.clone(), visible: obj.visible }; movables.push(obj); return obj; }
+function codeLabelTex(code, line2) {
+  const { c, tex } = canvasTex(512, 256);
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 512, 256);
+  T(c, code, 24, 58, 46, '#111', 700, 'left', MONO); T(c, line2, 24, 98, 26, '#333');
+  drawBarcode(c, 24, 118, 464, 112, code); return tex;
+}
+function makeSack(code, name) {
+  const g = new THREE.Group();
+  mesh(sackGeo, M.kraft, 0, 0, 0, g);
+  const print = mesh(new THREE.PlaneGeometry(.6, .4), sackPrintMat, -.02, .0862, 0, g, false); print.rotation.x = -PI / 2;
+  const lab = mesh(new THREE.PlaneGeometry(.2, .1), new THREE.MeshStandardMaterial({ map: codeLabelTex(code, name), roughness: .7, polygonOffset: true, polygonOffsetFactor: -2 }), .2, .0875, .13, g, false);
+  lab.rotation.x = -PI / 2;
+  // cinematic pour: the sack is turned end-on, rested low and its front end dipped ~30°, so the powder leaves the short end just over the rim
+  Object.assign(g.userData, { code, label: lab, carryPos: new THREE.Vector3(0, .02, .02), carryRot: [0, 0, 0], pourPos: new THREE.Vector3(0, -.35, .07), pourRot: [0, -PI / 2, -.52], mouth: new THREE.Vector3(0, 0, .25), pourMouth: new THREE.Vector3(.36, 0, 0), color: 0xf3ede0 });
+  return g;
+}
+function makeJar(code, name) {
+  const g = new THREE.Group();
+  const JP = [[0, 0], [.072, 0], [.08, .008], [.08, .16], [.07, .182], [.05, .192], [.05, .2], [0, .2]].map(([x, y]) => new THREE.Vector2(x, y));
+  mesh(new THREE.LatheGeometry(JP, 40), new THREE.MeshPhysicalMaterial({ color: 0xf3f4f2, roughness: .45, clearcoat: .2, transmission: 0, sheen: .3 }), 0, 0, 0, g);
+  const capP = [[0, .225], [.052, .225], [.056, .221], [.056, .196], [.05, .194]].map(([x, y]) => new THREE.Vector2(x, y));
+  mesh(new THREE.LatheGeometry(capP, 40), std(0x1f4fbf, .4), 0, 0, 0, g);
+  for (let i = 0; i < 36; i++) { const a = i / 36 * PI * 2; box(.004, .024, .004, std(0x1b45a8, .45), Math.sin(a) * .057, .209, Math.cos(a) * .057, g).rotation.y = a; }
+  const lab = mesh(new THREE.CylinderGeometry(.0805, .0805, .08, 24, 1, true, -.9, 1.8), new THREE.MeshStandardMaterial({ map: codeLabelTex(code, name), roughness: .7, side: THREE.DoubleSide }), 0, .09, 0, g, false);
+  Object.assign(g.userData, { code, label: lab, carryPos: new THREE.Vector3(.08, .02, .05), carryRot: [0, 0, 0], pourPos: new THREE.Vector3(.02, .15, .2), pourRot: [1.9, 0, 0], mouth: new THREE.Vector3(0, .22, 0), color: 0xfdf8ee });
+  return g;
+}
+const pailMat = new THREE.MeshPhysicalMaterial({ color: 0xf6f7f8, roughness: .38, metalness: 0, clearcoat: .25, clearcoatRoughness: .5, sheen: .2, side: THREE.DoubleSide });
+function makeContainer(r, h) {
+  const g = new THREE.Group();
+  // food-grade pail: tapered wall, stacking ribs, rolled rim (lathe profile, wall thickness ~3 mm)
+  const P = [], rb = r * .86, t = .004;
+  P.push(new THREE.Vector2(0, 0), new THREE.Vector2(rb - .01, 0), new THREE.Vector2(rb, .006));
+  for (const [f, dr] of [[.18, 0], [.2, .006], [.24, .006], [.26, 0], [.8, 0], [.82, .007], [.88, .007], [.9, .011], [.97, .011]]) P.push(new THREE.Vector2(rb + (r - rb) * f + dr, h * f));
+  P.push(new THREE.Vector2(r + .012, h), new THREE.Vector2(r + .006, h + .006), new THREE.Vector2(r - t, h + .002), new THREE.Vector2(r - t, h * .9));
+  P.push(new THREE.Vector2(rb - t + (r - rb) * .05, .02), new THREE.Vector2(0, t + .002));
+  mesh(new THREE.LatheGeometry(P, 48), pailMat, 0, 0, 0, g);
+  if (r > .1) { // wire-style plastic handle folded down + lugs
+    for (const sx of [-1, 1]) mesh(new RoundedBoxGeometry(.03, .04, .02, 2, .006), pailMat, sx * (r + .012), h * .86, 0, g).rotation.y = PI / 2;
+    const hd = mesh(new THREE.TorusGeometry(r + .02, .005, 8, 48, PI), std(0xeceeef, .45), 0, h * .86, 0, g); hd.rotation.set(PI / 2 + .9, 0, 0);
+  }
+  const fill = mesh(new THREE.CylinderGeometry(r * .92, r * .84, 1, 32), M.powder, 0, 0, 0, g); fill.visible = false;
+  Object.assign(g.userData, { r, h, fill, carryPos: new THREE.Vector3(0, -.1 - h * .3, .05), carryRot: [0, 0, 0], labelPos: new THREE.Vector3(0, h * .55, rb + (r - rb) * .55 + .006) });
+  return g;
+}
+function setFill(cont, f) { const u = cont.userData; u.fill.visible = f > .002; const hh = Math.max(.001, u.h * .85 * Math.min(1, f)); u.fill.scale.y = hh; u.fill.position.y = hh / 2 + .004; }
+
+const sackWrong = movable(makeSack('HM-1180', 'Hammadde X')); sackWrong.position.set(-6.6, .245, -1.25); sackWrong.rotation.y = .03;
+const sackA = movable(makeSack('HM-1021', 'Hammadde A')); sackA.position.set(-6.6, .245, -.75);
+const sackC = movable(makeSack('HM-1150', 'Hammadde C')); sackC.position.set(-6.6, .415, -1.25); sackC.rotation.y = -.05;
+const jarB = movable(makeJar('HM-2087', 'Hammadde B')); jarB.position.set(-6.55, .815, .6); jarB.rotation.y = PI;
+const jarD = movable(makeJar('HM-3304', 'Hammadde D')); jarD.position.set(-6.25, .815, .6); jarD.rotation.y = PI;
+for (const o of [sackWrong, sackA, sackC]) o.userData.stand = [-5.8, -1.0];
+for (const o of [jarB, jarD]) o.userData.stand = [-6.4, -.15];
+const cont1 = movable(makeContainer(.19, .34)); cont1.position.set(-.46, .365, -1.98);
+const cont3 = movable(makeContainer(.16, .28)); cont3.position.set(-.46, .365, -1.5);
+const cup2 = movable(makeContainer(.075, .14)); cup2.position.set(-1.15, .9, -3.72);
+const cup4 = movable(makeContainer(.065, .12)); cup4.position.set(-.97, .9, -3.72);
+const CONTS = [cont1, cup2, cont3, cup4], MATS = [sackA, jarB, sackC, jarD];
+
+// scanner
+const scanner = new THREE.Group();
+mesh(new RoundedBoxGeometry(.045, .12, .04, 2, .01), M.black, 0, -.05, 0, scanner);
+mesh(new RoundedBoxGeometry(.065, .055, .14, 2, .015), M.black, 0, .02, .04, scanner);
+const scanTip = new THREE.Object3D(); scanTip.position.set(0, .02, .115); scanner.add(scanTip);
+mesh(new THREE.PlaneGeometry(.04, .02), new THREE.MeshBasicMaterial({ color: 0xff3030 }), 0, .02, .1105, scanner, false);
+scanner.position.set(-.4, .97, -3.42); scanner.rotation.x = -PI / 2.2;
+movable(scanner);
+
+// labels (product) + QR
+const prodLabels = [0, 1, 2, 3].map(() => { const t = canvasTex(512, 320); const m = new THREE.Mesh(new THREE.PlaneGeometry(.12, .075), new THREE.MeshStandardMaterial({ map: t.tex, roughness: .6, side: THREE.DoubleSide })); m.userData.cv = t; m.position.set(0, .07, .12); m.rotation.x = -PI / 2 + .3; m.visible = false; return movable(m, printer); });
+const qrCv = canvasTex(640, 400);
+const qrLabel = movable((() => { const m = new THREE.Mesh(new THREE.PlaneGeometry(.32, .2), new THREE.MeshStandardMaterial({ map: qrCv.tex, roughness: .6, side: THREE.DoubleSide })); m.position.set(0, .07, .12); m.rotation.x = -PI / 2 + .3; m.visible = false; return m; })(), printer);
+const filmRoll = movable((() => { const g = new THREE.Group(); mesh(new THREE.CylinderGeometry(.06, .06, .32, 20), new THREE.MeshPhysicalMaterial({ color: 0xeaf4ff, roughness: .1, transparent: true, opacity: .7 }), 0, 0, 0, g); cyl(.02, .02, .38, M.dark, 0, 0, 0, g); g.visible = false; return g; })(), scene);
+
+function drawProdLabel(i) {
+  const it = S.items[i], { c, tex } = prodLabels[i].userData.cv;
+  c.fillStyle = '#fff'; c.fillRect(0, 0, 512, 320);
+  T(c, it.code + ' · ' + it.name, 22, 50, 34, '#111', 700);
+  T(c, 'LOT 26-1042 · RC-0417', 22, 92, 26, '#333');
+  T(c, 'Net ' + fmt(it.actual ?? it.target, it.unit) + ' ' + it.unit + ' · Terazi ' + it.scale, 22, 130, 28, '#111', 600);
+  drawBarcode(c, 22, 150, 468, 140, it.code + '-26-1042'); tex.needsUpdate = true;
+}
+function drawQRLabel() {
+  const { c, tex } = qrCv; c.fillStyle = '#fff'; c.fillRect(0, 0, 640, 400);
+  T(c, 'BATCH', 28, 62, 44, '#111', 700); T(c, 'LOT 26-1042', 28, 112, 34, '#111', 600, 'left', MONO);
+  T(c, 'Reçete RC-0417', 28, 160, 28, '#333'); T(c, '4 kalem', 28, 210, 30, '#111', 600); T(c, 'Toplam ' + totalKg() + ' kg', 28, 254, 30, '#111', 600);
+  T(c, new Date().toLocaleDateString('tr-TR'), 28, 300, 24, '#555');
+  drawQR(c, 380, 60, 230, 'BATCH-26-1042'); tex.needsUpdate = true;
+}
+
+/* ---------- realism: glossy epoxy reflections, soft ceiling shadows, ambient occlusion ---------- */
+// The opaque epoxy floor gets a soft, Fresnel-weighted reflection blended over it (LED panels and walls show as bright
+// streaks, dark legs as faint darker sheen), instead of a semi-transparent floor over a sharp mirror. Blending by alpha,
+// not adding: the framebuffer is sRGB-encoded, so even a small additive term would wash the floor out to white.
+const GlossShader = {
+  name: 'GlossReflector',
+  uniforms: { color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null }, base: { value: .16 }, texel: { value: new THREE.Vector2(1 / 512, 1 / 512) } },
+  vertexShader: `uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vWorld;
+    void main() { vUv = textureMatrix * vec4(position, 1.0); vec4 wp = modelMatrix * vec4(position, 1.0); vWorld = wp.xyz; gl_Position = projectionMatrix * viewMatrix * wp; }`,
+  fragmentShader: `uniform vec3 color; uniform sampler2D tDiffuse; uniform float base; uniform vec2 texel; varying vec4 vUv; varying vec3 vWorld;
+    void main() {
+      vec2 uv = vUv.xy / vUv.w; vec3 c = vec3(0.0);
+      for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) c += texture2D(tDiffuse, uv + vec2(float(i), float(j)) * texel * 1.6).rgb;
+      c /= 25.0;
+      float ny = clamp(normalize(cameraPosition - vWorld).y, 0.0, 1.0);
+      float f = base + (1.0 - base) * pow(1.0 - ny, 5.0);
+      gl_FragColor = vec4(c * color, f);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+};
+const floorReflector = new Reflector(new THREE.PlaneGeometry(RW, RD), { textureWidth: 512, textureHeight: 512, color: 0xffffff, clipBias: .003, shader: GlossShader });
+Object.assign(floorReflector.material, { transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+floorReflector.rotation.x = -PI / 2; floorReflector.position.set(RCX, .0203, RCZ); scene.add(floorReflector);
+const ceilSpot = new THREE.SpotLight(0xf4f8ff, 14, 9, PI / 2.3, 1, 1.3);
+ceilSpot.position.set(RCX, RH - .1, RCZ); ceilSpot.target.position.set(RCX, 0, RCZ); scene.add(ceilSpot, ceilSpot.target);
+ceilSpot.castShadow = true; ceilSpot.shadow.mapSize.set(2048, 2048); ceilSpot.shadow.radius = 8; ceilSpot.shadow.blurSamples = 16;
+ceilSpot.shadow.bias = -.0004; ceilSpot.shadow.normalBias = .02; ceilSpot.shadow.camera.near = .3; ceilSpot.shadow.camera.far = 4;
+renderer.xr.addEventListener('sessionstart', () => { floorReflector.visible = false; ceilSpot.shadow.mapSize.set(1024, 1024); ceilSpot.shadow.map?.dispose(); ceilSpot.shadow.map = null; });
+renderer.xr.addEventListener('sessionend', () => { floorReflector.visible = true; });
+
+/* ---------- Higgsfield 3D models (SAM 3D, from product shots of the reference room) ---------- */
+const gltfLoader = new GLTFLoader();
+// The image-to-3D GLBs carry no metallicFactor (glTF default 1 = fully metallic) and dark, baked-lit albedo maps:
+// give each model real PBR values. [metalness, roughness, albedo lift so steel reaches F0 ~.55 and white plastics ~.7]
+const PBR = {
+  'floorscale.glb': [1, .26, 1.95], 'indicator.glb': [.85, .3, 2.1], 'sackstand.glb': [1, .26, 2.3], 'wireshelf.glb': [1, .2, 3.4], 'table.glb': [1, .24, 2.5],
+  'panelpc.glb': [.7, .32, 2.4], 'benchscale.glb': [.15, .4, 1.6], 'bucket.glb': [0, .42, 1.45], 'tub.glb': [0, .42, 1.5], 'jar.glb': [0, .35, 1.5],
+  'printer.glb': [0, .5, 1.2], 'scanner.glb': [0, .45, 1], 'plasticpallet.glb': [0, .55, 1.2], 'sack.glb': [0, .9, 1.35], 'filmroll.glb': [0, .12, 1.3],
+};
+function applyPBR(file, root) {
+  const p = PBR[file]; if (!p) return;
+  root.traverse(m => { if (m.isMesh && m.material) { const mt = m.material; mt.metalness = p[0]; mt.roughness = p[1]; mt.color.setScalar(p[2]); mt.envMapIntensity = p[0] > .5 ? 1.15 : .55; mt.userData.keepEnv = true; mt.needsUpdate = true; } });
+}
+// Loads a GLB, scales it so its width (x) matches `width`, sets its base on y=0 and centre on x/z, then hides the primitive stand-ins.
+function swapModel(file, parent, width, { hide = [], offset = [0, 0, 0], after, fitH, byHeight, rotY = 0 } = {}) {
+  gltfLoader.load('assets/models/' + file, g => {
+    const o = g.scene; o.rotation.y = rotY;
+    const b = new THREE.Box3().setFromObject(o), sz = b.getSize(new THREE.Vector3());
+    o.scale.setScalar(byHeight ? byHeight / sz.y : width / sz.x);
+    if (fitH) o.scale.y = fitH / sz.y;
+    const b2 = new THREE.Box3().setFromObject(o), c = b2.getCenter(new THREE.Vector3());
+    o.position.set(-c.x + offset[0], -b2.min.y + offset[1], -c.z + offset[2]);
+    o.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; }); applyPBR(file, o);
+    parent.add(o); parent.updateMatrixWorld(true); hide.forEach(h => h.visible = false);
+    after?.(o, b2.getSize(new THREE.Vector3()));
+  }, undefined, e => console.warn('model', file, e));
+}
+const meshesOf = (g, keep = []) => g.children.filter(c => c.isMesh && !keep.includes(c));
+swapModel('floorscale.glb', T1, .9, { hide: meshesOf(T1), after: (o, s) => { T1top.position.y = s.y - .005; } });
+swapModel('benchscale.glb', T2, .34, {
+  hide: meshesOf(T2, [T2dm, T2btn, T2tare, T2beacon]),
+  after: (o, s) => {
+    T2top.position.y = s.y - .002;
+    // the live LCD replaces the model's own display window on the sloped front bezel; keys and status LED sit flush beside it
+    const z1 = probeZ(T2, o, 0, .036) ?? .16, z2 = probeZ(T2, o, 0, .06) ?? .128, tilt = Math.atan2(z1 - z2, .024);
+    const onBezel = (m, x, y, lift) => { const t = (y - .036) / .024; m.position.set(x, y, z1 + (z2 - z1) * t + lift * Math.cos(tilt)); m.position.y += lift * Math.sin(tilt); };
+    T2dm.geometry.dispose(); T2dm.geometry = new THREE.PlaneGeometry(.11, .027); onBezel(T2dm, -.01, .049, .0015); T2dm.rotation.set(-tilt, 0, 0);
+    for (const [b, x] of [[T2tare, .088], [T2btn, .118]]) { b.geometry.dispose(); b.geometry = new THREE.CylinderGeometry(.007, .007, .003, 20); onBezel(b, x, .046, .0012); b.rotation.set(PI / 2 - tilt, 0, 0); }
+    T2beacon.geometry.dispose(); T2beacon.geometry = new THREE.CylinderGeometry(.004, .004, .002, 16); onBezel(T2beacon, -.1, .049, .001); T2beacon.rotation.set(PI / 2 - tilt, 0, 0);
+  },
+});
+swapModel('table.glb', bench, 1.55, { hide: meshesOf(bench), fitH: .9 });
+// surface probe: casts a ray along -z in `group` local space and returns the hit z (or null)
+function probeZ(group, model, x, y) {
+  group.updateMatrixWorld(true);
+  const o = group.localToWorld(new THREE.Vector3(x, y, 2)), d = group.localToWorld(new THREE.Vector3(x, y, 0)).sub(o).normalize();
+  const h = new THREE.Raycaster(o, d, 0, 5).intersectObject(model, true)[0];
+  return h ? group.worldToLocal(h.point.clone()).z : null;
+}
+swapModel('panelpc.glb', pc, .68, {
+  hide: meshesOf(pc, [screenMesh]),
+  after: (o, s) => {
+    o.scale.z *= .5;                                   // fold the articulated arm closer to the wall
+    pc.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(o);
+    const bl = b.clone().applyMatrix4(pc.matrixWorld.clone().invert());
+    o.position.z += -.06 - bl.min.z; o.position.y -= (bl.min.y + bl.max.y) / 2 + .02; pc.updateMatrixWorld(true);
+    // find the flat screen face and size the live UI to it
+    const zc = probeZ(pc, o, -.05, 0); if (zc == null) return;
+    let x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+    for (let x = -.05; x > -.6; x -= .005) { const z = probeZ(pc, o, x, 0); if (z == null || Math.abs(z - zc) > .006) break; x0 = x; }
+    for (let x = -.05; x < .6; x += .005) { const z = probeZ(pc, o, x, 0); if (z == null || Math.abs(z - zc) > .006) break; x1 = x; }
+    const xm = (x0 + x1) / 2;
+    for (let y = 0; y > -.5; y -= .005) { const z = probeZ(pc, o, xm, y); if (z == null || Math.abs(z - zc) > .006) break; y0 = y; }
+    for (let y = 0; y < .5; y += .005) { const z = probeZ(pc, o, xm, y); if (z == null || Math.abs(z - zc) > .006) break; y1 = y; }
+    const w = (x1 - x0) * .84, hgt = Math.min((y1 - y0) * .8, w * .625);
+    screenMesh.geometry.dispose(); screenMesh.geometry = new THREE.PlaneGeometry(w, hgt);
+    screenMesh.position.set(xm, (y0 + y1) / 2, zc + .003);
+  },
+});
+const T1dispMesh = T1col.children.find(c => c.material && c.material.map === T1disp.tex);
+swapModel('indicator.glb', T1col, 1, {
+  byHeight: 1.26, hide: meshesOf(T1col, [T1dispMesh, T1btn, T1tare, T1beacon]),
+  after: (o, s) => {
+    // head front face, then put the live LCD + buttons on it
+    const zf = probeZ(T1col, o, 0, s.y - .1) ?? .05;
+    T1dispMesh.geometry.dispose(); T1dispMesh.geometry = new THREE.PlaneGeometry(.17, .064);
+    T1dispMesh.position.set(.02, s.y - .065, zf + .004);
+    for (const b of [T1tare, T1btn]) { b.geometry.dispose(); b.geometry = new THREE.CylinderGeometry(.013, .013, .006, 24); }
+    T1tare.position.set(-.09, s.y - .15, zf + .003); T1btn.position.set(.075, s.y - .15, zf + .003);
+    T1beacon.geometry.dispose(); T1beacon.geometry = new THREE.CylinderGeometry(.015, .015, .04, 20); T1beacon.position.set(0, s.y + .025, -.02);
+  },
+});
+swapModel('printer.glb', printer, .27, { hide: meshesOf(printer, [...prodLabels, qrLabel]) });
+swapModel('scanner.glb', scanner, .07, { hide: meshesOf(scanner), offset: [0, -.115, .02] });
+/* ---------- realistic props (SAM 3D models from product shots) ---------- */
+const glbCache = {};
+const loadGLB = f => glbCache[f] ??= gltfLoader.loadAsync('assets/models/' + f).then(g => { applyPBR(f, g.scene); return g.scene; });
+// clone a loaded model, scale it (by height or width; optional non-uniform height), centre on x/z, base on y = 0
+function fitClone(src, { byH, byW, h, rotY = 0 }) {
+  const o = src.clone(true); o.rotation.y = rotY;
+  const b = new THREE.Box3().setFromObject(o), sz = b.getSize(new THREE.Vector3());
+  o.scale.setScalar(byH ? byH / sz.y : byW / sz.x);
+  if (h) o.scale.y = h / sz.y;
+  const b2 = new THREE.Box3().setFromObject(o), c = b2.getCenter(new THREE.Vector3());
+  o.position.set(-c.x, -b2.min.y, -c.z);
+  o.traverse(m => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
+  o.userData.size = b2.getSize(new THREE.Vector3());
+  return o;
+}
+// raw-material sacks: keep our barcode label (scan target) on the model's top face
+loadGLB('sack.glb').then(src => {
+  for (const g of [sackWrong, sackA, sackC]) {
+    g.children.forEach(c => { if (c !== g.userData.label) c.visible = false; });
+    const o = fitClone(src, { byW: .72, h: .17 }); o.position.y -= .085; g.add(o);
+    g.userData.label.position.y = .092; g.userData.label.position.x = .2; g.userData.label.position.z = .1;
+  }
+});
+loadGLB('jar.glb').then(src => {
+  for (const g of [jarB, jarD]) {
+    const lab = g.userData.label;
+    g.children.forEach(c => { if (c !== lab) c.visible = false; });
+    const o = fitClone(src, { byH: .225 }); g.add(o);
+    const rm = o.userData.size.x / 2; lab.scale.set((rm + .002) / .0805, 1, (rm + .002) / .0805); lab.position.y = .1;
+  }
+});
+// weighing containers: pails for Terazi 1, small tubs for Terazi 2; the powder fill is re-fitted to the model's inner radius
+function fitContainer(g, src) {
+  const u = g.userData;
+  g.children.forEach(c => { if (c !== u.fill) c.visible = false; });
+  const o = fitClone(src, { byH: u.h }); g.add(o);
+  const rm = Math.min(o.userData.size.x, o.userData.size.z) / 2 * .9;
+  u.fill.scale.x = u.fill.scale.z = rm / (u.r * .92);
+  u.labelPos.z = rm + .012;
+}
+loadGLB('bucket.glb').then(src => { fitContainer(cont1, src); fitContainer(cont3, src); });
+loadGLB('tub.glb').then(src => { fitContainer(cup2, src); fitContainer(cup4, src); });
+loadGLB('plasticpallet.glb').then(src => { batchPallet.children[0].visible = false; batchPallet.add(fitClone(src, { byW: 1.2, h: .14 })); });
+loadGLB('filmroll.glb').then(src => { filmRoll.children.forEach(c => c.visible = false); const o = fitClone(src, { byH: .34 }); o.position.y -= .17; filmRoll.add(o); });
+swapModel('sackstand.glb', sehpa, .56, { hide: meshesOf(sehpa), fitH: .567 });
+swapModel('wireshelf.glb', shelf, .42, {
+  rotY: PI / 2, hide: meshesOf(shelf), fitH: 1.0,
+  after: o => {
+    // find the lower and upper wire decks and move the (hidden) collision boards + empty pails onto them
+    shelf.updateMatrixWorld(true);
+    const hits = []; const rc = new THREE.Raycaster();
+    for (const y0 of [.7, 1.2]) { rc.set(shelf.localToWorld(new THREE.Vector3(0, y0, .2)), new THREE.Vector3(0, -1, 0)); const h = rc.intersectObject(o, true)[0]; if (h) hits.push(h.point.y); }
+    if (hits.length < 2) return;
+    const [upper, lower] = [Math.max(...hits), Math.min(...hits)];
+    shelf.children[0].position.y = lower; shelf.children[1].position.y = upper;
+    for (const c of [cont1, cont3]) { c.position.y = lower + .004; c.userData.init.pos.y = lower + .004; }
+  },
+});
+
+
+/* ======================================================================
+   Operator (cleanroom suit)
+   ====================================================================== */
+function makeOperator() {
+  const suit = applyTex(new THREE.MeshPhysicalMaterial({ color: 0xf4f6f8, roughness: .82, sheen: .6, sheenRoughness: .7, sheenColor: new THREE.Color(0xffffff) }), 'tyvek', 2, 2, { bump: 1.4, color: 0xf6f7f9 });
+  const seam = std(0xdfe3e8, .8), glove = new THREE.MeshPhysicalMaterial({ color: 0x3a78d8, roughness: .42, clearcoat: .35, clearcoatRoughness: .4 });
+  const skin = new THREE.MeshPhysicalMaterial({ color: 0xd9a888, roughness: .6, sheen: .3, sheenColor: new THREE.Color(0xffd8c0) });
+  const maskM = new THREE.MeshPhysicalMaterial({ color: 0x9fc8ec, roughness: .9, sheen: .5 });
+  const lens = new THREE.MeshPhysicalMaterial({ color: 0xe8f4ff, roughness: .05, metalness: 0, transparent: true, opacity: .28, clearcoat: 1 });
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const cap = (r, l, mat, x, y, z, p) => mesh(new THREE.CapsuleGeometry(r, l, 6, 18), mat, x, y, z, p);
+  const lathe = (pts, mat, p, sx = 1, sz = 1, seg = 32) => { const m = mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), mat, 0, 0, 0, p); m.scale.set(sx, 1, sz); return m; };
+  // torso: one continuous lathe (hips -> waist -> chest -> shoulders -> neck), baggy coverall proportions
+  lathe([[0, .86], [.15, .87], [.19, .93], [.2, 1.0], [.185, 1.08], [.178, 1.15], [.19, 1.24], [.205, 1.33], [.212, 1.41], [.2, 1.48], [.16, 1.53], [.09, 1.565], [.06, 1.59], [0, 1.6]], suit, body, 1.05, .7);
+  for (const sx of [-1, 1]) mesh(new THREE.SphereGeometry(.085, 18, 14), suit, sx * .205, 1.45, 0, body).scale.set(1, .9, .95); // shoulder caps
+  // zip placket, elastic waist, chest pocket
+  box(.03, .5, .008, seam, 0, 1.27, .148, body); box(.004, .5, .009, std(0xbfc6ce, .5), 0, 1.27, .152, body);
+  const waist = mesh(new THREE.TorusGeometry(.188, .012, 8, 40), seam, 0, 1.1, 0, body); waist.rotation.x = PI / 2; waist.scale.set(1.05, .72, 1);
+  box(.09, .1, .008, seam, -.09, 1.33, .143, body);
+  // head + hood + mask + safety glasses
+  const head = new THREE.Group(); head.position.set(0, 1.68, 0); body.add(head);
+  mesh(new THREE.SphereGeometry(.105, 24, 18), skin, 0, 0, .012, head).scale.set(.9, 1.1, .98);
+  for (const sx of [-1, 1]) { mesh(new THREE.SphereGeometry(.011, 10, 8), std(0x2a1d16, .3), sx * .036, .02, .1, head); mesh(new THREE.SphereGeometry(.016, 10, 8), std(0xf4ece6, .4), sx * .036, .02, .094, head); }
+  const hood = mesh(new THREE.SphereGeometry(.13, 28, 20, PI / 2 + .78, 2 * PI - 1.56, 0, PI * .78), suit, 0, .012, -.006, head); hood.scale.set(1.02, 1.12, 1.04); hood.material = suit.clone(); hood.material.side = THREE.DoubleSide;
+  lathe([[.085, -.1], [.12, -.13], [.16, -.17], [.2, -.2]], suit, head, 1, .8, 28).material.side = THREE.DoubleSide;   // hood skirt over the shoulders
+  mesh(new THREE.TorusGeometry(.098, .008, 8, 32, PI * 1.2), seam, 0, .015, .03, head).rotation.set(0, 0, -PI * .1 - PI / 2 + PI); // elastic face opening
+  const maskG = new THREE.SphereGeometry(.1, 24, 12, PI / 2 - .95, 1.9, PI * .52, PI * .22); const mk = mesh(maskG, maskM, 0, .0, .008, head); mk.scale.set(1, 1.15, 1.08);
+  for (let i = 0; i < 3; i++) { const pl = mesh(new THREE.TorusGeometry(.104, .0018, 4, 24, 1.5), std(0x8fb9df, .9), 0, -.035 - i * .018, .006, head); pl.rotation.set(PI / 2 - .2, 0, PI / 2 - .75); pl.scale.set(1, 1, .5); }
+  const gl = mesh(new THREE.CylinderGeometry(.106, .106, .045, 28, 1, true, -1.0, 2.0), lens, 0, .022, .004, head); gl.scale.set(.95, 1, 1.02);
+  mesh(new THREE.TorusGeometry(.106, .004, 6, 28, 2.0), std(0x2e3640, .4), 0, .045, .004, head).rotation.set(PI / 2, 0, PI / 2 - 1.0);
+  // arms with cuffs and fingered nitrile gloves
+  const arm = s => {
+    const sh = new THREE.Group(); sh.position.set(s * .25, 1.47, 0); body.add(sh);
+    lathe([[0, 0], [.068, -.02], [.066, -.12], [.058, -.25], [.052, -.31], [0, -.33]], suit, sh, 1, .95, 20);
+    const el = new THREE.Group(); el.position.y = -.31; sh.add(el);
+    mesh(new THREE.SphereGeometry(.053, 14, 10), suit, 0, 0, 0, el);
+    lathe([[0, 0], [.054, -.01], [.05, -.12], [.044, -.22], [0, -.24]], suit, el, 1, .9, 20);
+    mesh(new THREE.TorusGeometry(.04, .009, 8, 20), seam, 0, -.215, 0, el).rotation.x = PI / 2;   // elastic cuff
+    const hand = new THREE.Group(); hand.position.y = -.28; el.add(hand);
+    cyl(.042, .039, .07, glove, 0, .045, 0, hand);
+    mesh(new RoundedBoxGeometry(.075, .085, .03, 3, .013), glove, 0, -.02, 0, hand);
+    for (let f = 0; f < 4; f++) { const fx = -.027 + f * .018; cap(.0085, .045 - Math.abs(f - 1.5) * .006, glove, fx, -.088, .002, hand); }
+    const th = cap(.01, .035, glove, s * -.04, -.025, .012, hand); th.rotation.z = s * .7;
+    return { sh, el, hand };
+  };
+  // legs with shoe covers
+  const leg = s => {
+    const hip = new THREE.Group(); hip.position.set(s * .1, .95, 0); body.add(hip);
+    lathe([[0, .02], [.092, 0], [.088, -.15], [.075, -.32], [.07, -.44], [0, -.46]], suit, hip, 1, .95, 22);
+    const kn = new THREE.Group(); kn.position.y = -.44; hip.add(kn);
+    mesh(new THREE.SphereGeometry(.07, 14, 10), suit, 0, 0, 0, kn);
+    lathe([[0, 0], [.071, -.01], [.064, -.18], [.058, -.34], [0, -.36]], suit, kn, 1, .95, 22);
+    const sc = mesh(new RoundedBoxGeometry(.115, .1, .28, 3, .045), std(0xf2f4f6, .75), 0, -.455, .045, kn); sc.scale.set(1, 1, 1);
+    mesh(new THREE.TorusGeometry(.062, .008, 6, 20), seam, 0, -.39, .0, kn).rotation.x = PI / 2;
+    return { hip, kn };
+  };
+  const L = arm(1), R = arm(-1), LL = leg(1), LR = leg(-1);
+  const carry = new THREE.Object3D(); carry.position.set(0, 1.1, .38); body.add(carry);
+  root.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
+  scene.add(root);
+  return { root, body, head, L, R, LL, LR, carry, handR: R.hand };
+}
+const POSES = {
+  idle:  [-.05, -.15, .06, -.05, -.15, -.06],
+  carry: [-.75, -1.05, -.28, -.75, -1.05, .28],
+  reach: [-1.15, -.25, -.1, -1.15, -.25, .1],
+  reachR:[-.05, -.15, .06, -1.25, -.2, -.05],
+  scan:  [-.05, -.15, .06, -1.25, -.45, .05],
+  press: [-.05, -.15, .06, -1.05, -.15, .12],
+  type:  [-.05, -.15, .06, -1.45, -.2, .1],
+  pour:  [-1.25, -.55, -.2, -1.0, -.95, .25],
+  pourR: [-.05, -.15, .06, -1.1, -.75, .15],
+  wrap:  [-.95, -.7, -.2, -.95, -.7, .2],
+};
+const op = Object.assign(makeOperator(), { pose: 'idle', ang: [...POSES.idle], walking: false, phase: 0, walkAmt: 0 });
+// ik: optional right-hand target { obj: Object3D | Vector3, mode: 'touch' (fingertips on it) | 'aim' (hold a scanner pointed at it) }
+op.setPose = (name, ik = null) => { op.pose = name; op.ikR = ik; if (sim.instant) op.ang = [...POSES[name]]; };
+op.update = (dt, realDt) => {
+  const tgt = POSES[op.pose], k = 1 - Math.exp(-12 * realDt * Math.max(.2, sim.speed * sim.mul));
+  for (let i = 0; i < 6; i++) op.ang[i] += (tgt[i] - op.ang[i]) * (sim.paused ? 0 : k);
+  op.walkAmt += ((op.walking ? 1 : 0) - op.walkAmt) * Math.min(1, realDt * 10);
+  op.phase += dt * 7.5;
+  const sw = Math.sin(op.phase) * op.walkAmt, a = op.ang, swingArms = op.pose === 'idle' || op.pose === 'scan' ? sw * .35 : 0;
+  op.L.sh.rotation.set(a[0] - swingArms, 0, a[2]); op.L.el.rotation.x = a[1];
+  op.R.sh.rotation.set(a[3] + (op.pose === 'idle' ? swingArms : 0), 0, a[5]); op.R.el.rotation.x = a[4];
+  op.LL.hip.rotation.x = sw * .5; op.LR.hip.rotation.x = -sw * .5;
+  op.LL.kn.rotation.x = Math.max(0, -Math.sin(op.phase)) * .7 * op.walkAmt; op.LR.kn.rotation.x = Math.max(0, Math.sin(op.phase)) * .7 * op.walkAmt;
+  op.body.position.y = Math.abs(Math.cos(op.phase)) * .025 * op.walkAmt;
+  op.root.updateMatrixWorld(true); updateRig(dt);
+  opShadow.position.set(op.root.position.x, inBooth(op.root.position.x, op.root.position.z) ? .022 : .004, op.root.position.z); opShadow.rotation.z = op.root.rotation.y; opShadow.visible = op.root.visible;
+};
+/* ---------- photoreal rigged operator (Tripo H3.1 mesh + Meshy rig/walk clip) ----------
+   The procedural figure above stays as the invisible "pose driver": its arm groups are still
+   animated every frame, and the rig's arm bones are aimed along them, so every scenario pose works. */
+const RIG = { ready: false };
+gltfLoader.load('assets/models/operator.glb', g => {
+  const model = g.scene, bones = {};
+  model.traverse(o => { if (o.isBone) bones[o.name] = o; if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; matteSuit(o.material); } });
+  if (!bones.RightArm || !bones.RightForeArm || !bones.RightHand) { console.warn('rig: missing arm bones'); return; }
+  model.traverse(o => { if (o.isSkinnedMesh) cleanArmWeights(o); });
+  const holder = new THREE.Group(); model.rotation.y = -PI / 2; holder.add(model);           // model faces +x -> turn to +z
+  op.root.add(holder); op.root.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(model), h = b.max.y - b.min.y;
+  holder.scale.setScalar(1.74 / h); op.root.updateMatrixWorld(true);
+  const b2 = new THREE.Box3().setFromObject(model); holder.position.y -= b2.min.y - op.root.position.y;
+  // bind data for the aim solver
+  for (const n of ['LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm']) {
+    const bone = bones[n], child = bones[n.replace('ForeArm', 'Hand').replace(/Arm$/, 'ForeArm')];
+    bone.userData.q0 = bone.quaternion.clone(); bone.userData.axis = child.position.clone().normalize();
+  }
+  const mixer = new THREE.AnimationMixer(model), walk = g.animations[0] ? mixer.clipAction(g.animations[0]) : null;
+  if (walk) { walk.play(); walk.setEffectiveWeight(0); }
+  // hide the procedural figure (but not props it may be holding)
+  op.body.traverse(o => { if (o.isMesh && !movables.some(m => isAncestorOf(m, o))) o.visible = false; });
+  // move the hand anchor onto the real hand
+  const hand = new THREE.Object3D(); op.root.add(hand);
+  for (const c of [...op.handR.children]) if (movables.includes(c)) hand.add(c);
+  op.handR = hand;
+  model.traverse(o => { if (o.isMesh) { o.material.transparent = false; o.material.alphaTest = 0; opMats.add(o.material); } });
+  Object.assign(RIG, { ready: true, model, bones, mixer, walk, hand });
+}, undefined, e => console.warn('operator rig', e));
+function isAncestorOf(a, o) { while (o) { if (o === a) return true; o = o.parent; } return false; }
+// The auto-rig let the hands pull on coverall vertices that hang next to them in the bind pose (thighs and hips), so any
+// reach stretched the suit's legs into ribbons. Below the hips, a vertex keeps its arm influence only if it lies nearer the
+// forearm/hand chain than the leg bones (sleeves and gloves); everything else is renormalised onto its other bones.
+function cleanArmWeights(mesh) {
+  const sk = mesh.skeleton, g = mesh.geometry, pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const idx = {}, bp = {}; sk.bones.forEach((b, i) => { idx[b.name] = i; bp[b.name] = new THREE.Vector3().setFromMatrixPosition(sk.boneInverses[i].clone().invert()); });
+  if (!bp.Hips || !bp.LeftHand || !bp.RightHand || !bp.LeftUpLeg || !bp.RightUpLeg) return 0;
+  const ext = (a, b, k) => b.clone().add(b.clone().sub(a).multiplyScalar(k));
+  const segs = pts => pts.slice(1).map((p, i) => [pts[i], p]);
+  const armSegs = sd => segs([bp[sd + 'Arm'], bp[sd + 'ForeArm'], bp[sd + 'Hand'], ext(bp[sd + 'ForeArm'], bp[sd + 'Hand'], .9)]);
+  const legSegs = [...segs([bp.LeftUpLeg, bp.LeftLeg, bp.LeftFoot]), ...segs([bp.RightUpLeg, bp.RightLeg, bp.RightFoot]), [bp.Hips, bp.LeftUpLeg], [bp.Hips, bp.RightUpLeg]];
+  const dSeg = (p, [a, b]) => { const ab = b.clone().sub(a), t = THREE.MathUtils.clamp(p.clone().sub(a).dot(ab) / ab.lengthSq(), 0, 1); return p.distanceTo(a.clone().addScaledVector(ab, t)); };
+  const dMin = (p, list) => list.reduce((m, sg) => Math.min(m, dSeg(p, sg)), Infinity);
+  const SIDES = ['Left', 'Right'].map(sd => ({ segs: armSegs(sd), bones: new Set([sd + 'Arm', sd + 'ForeArm', sd + 'Hand'].map(n => idx[n])) }));
+  const v = new THREE.Vector3(); let fixed = 0;
+  for (let i = 0; i < pos.count; i++) {
+    if (v.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).y > bp.Hips.y) continue;
+    let touched = false;
+    for (const S of SIDES) {
+      let has = false; for (let j = 0; j < 4; j++) if (sw.getComponent(i, j) > 0 && S.bones.has(si.getComponent(i, j))) has = true;
+      if (!has || dMin(v, S.segs) < 1.05 * dMin(v, legSegs)) continue;
+      for (let j = 0; j < 4; j++) if (S.bones.has(si.getComponent(i, j))) sw.setComponent(i, j, 0);
+      touched = true;
+    }
+    if (!touched) continue;
+    let sum = 0; for (let j = 0; j < 4; j++) sum += sw.getComponent(i, j);
+    if (sum < 1e-4) { si.setComponent(i, 0, idx.Hips); sw.setComponent(i, 0, 1); si.needsUpdate = true; }
+    else for (let j = 0; j < 4; j++) sw.setComponent(i, j, sw.getComponent(i, j) / sum);
+    fixed++;
+  }
+  sw.needsUpdate = true;
+  return fixed;
+}
+// Tyvek is matte paper-white: keep the map's relative roughness (gloves stay a little glossier) but push it up, drop the metal
+// channel and the flat normal map, and halve the 4K maps (GPU memory on Quest)
+function matteSuit(mt) {
+  mt.metalness = 0; mt.metalnessMap = null; mt.roughness = 2.1; mt.normalMap = null; mt.envMapIntensity = .45; mt.color.setScalar(1.05); mt.userData.keepEnv = true;
+  for (const k of ['map', 'roughnessMap']) if (mt[k]?.image?.width > 2048) mt[k] = shrinkTex(mt[k], 2048);
+  mt.needsUpdate = true;
+}
+function shrinkTex(t, n) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = n; cv.getContext('2d').drawImage(t.image, 0, 0, n, n);
+  const t2 = new THREE.CanvasTexture(cv); Object.assign(t2, { flipY: t.flipY, colorSpace: t.colorSpace, wrapS: t.wrapS, wrapT: t.wrapT, channel: t.channel, anisotropy: 8 }); t.dispose(); return t2;
+}
+const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3();
+// rotate `bone` so its (bind) axis points along world direction `dir`, keeping the bind twist
+function aimBone(bone, dir) {
+  bone.parent.getWorldQuaternion(_q).invert();
+  const local = _v.copy(dir).applyQuaternion(_q).normalize();
+  const cur = _v2.copy(bone.userData.axis).applyQuaternion(bone.userData.q0);
+  _q2.setFromUnitVectors(cur.normalize(), local);
+  bone.quaternion.copy(_q2).multiply(bone.userData.q0);
+  bone.updateMatrixWorld(true);
+}
+// analytic two-bone IK: shoulder -> elbow -> wrist reaches `target`, elbow bends down/back and outward
+function ikArm(s, target, side, sg) {
+  const A = RIG.bones[s + 'Arm'], F = RIG.bones[s + 'ForeArm'], H = RIG.bones[s + 'Hand'];
+  const S = A.getWorldPosition(new THREE.Vector3()), Ep = F.getWorldPosition(new THREE.Vector3()), Wp = H.getWorldPosition(new THREE.Vector3());
+  const a = RIG.lenU ??= S.distanceTo(Ep), b = RIG.lenF ??= Ep.distanceTo(Wp);
+  const toT = target.clone().sub(S); let d = toT.length(); const dir = toT.normalize(); d = Math.min(d, (a + b) * .999);
+  const cosA = THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(op.root.quaternion);
+  const pole = new THREE.Vector3(0, -1, 0).addScaledVector(fwd, -.5).addScaledVector(side, sg * .6);
+  const bend = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
+  const E = S.clone().addScaledVector(dir, a * cosA).addScaledVector(bend, a * sinA);
+  aimBone(A, E.clone().sub(S).normalize());
+  aimBone(F, target.clone().sub(E).normalize());
+}
+// blends the right arm from the pose-driver solution into a two-bone IK reach towards op.ikR (and back out when it clears)
+function rightHandIK(dt, side) {
+  const ik = op.ikR;
+  op.ikW = (op.ikW || 0) + ((ik ? 1 : 0) - (op.ikW || 0)) * (sim.instant ? 1 : Math.min(1, dt * 7));
+  if (ik) {
+    const S = RIG.bones.RightArm.getWorldPosition(new THREE.Vector3()), tp = ik.obj.isObject3D ? ik.obj.getWorldPosition(new THREE.Vector3()) : ik.obj.clone();
+    if (ik.off) tp.add(new THREE.Vector3(...ik.off));
+    const dir = tp.clone().sub(S), L = dir.length(); dir.normalize();
+    op.ikLast = ik.mode === 'aim' ? S.addScaledVector(dir, Math.min(.42, L - .1)).add(new THREE.Vector3(0, -.06, 0)) : tp.addScaledVector(dir, -.09);
+  }
+  if (op.ikW < .005 || !op.ikLast) return;
+  const A = RIG.bones.RightArm, F = RIG.bones.RightForeArm, qa = A.quaternion.clone(), qf = F.quaternion.clone();
+  ikArm('Right', op.ikLast, side, -1);
+  if (op.ikW < .995) { A.quaternion.slerpQuaternions(qa, A.quaternion.clone(), op.ikW); F.quaternion.slerpQuaternions(qf, F.quaternion.clone(), op.ikW); A.updateMatrixWorld(true); }
+}
+function updateRig(dt) {
+  if (!RIG.ready) return;
+  if (RIG.walk) { RIG.walk.setEffectiveWeight(op.walkAmt); RIG.walk.timeScale = 1.15; }
+  RIG.mixer.update(dt);
+  const side = new THREE.Vector3(1, 0, 0).applyQuaternion(op.root.quaternion);
+  // lean over the pail while pouring. The mixer only writes a bone when its blended value changes (not while the walk weight
+  // stays 0), so last frame's lean is undone first or it would accumulate.
+  const lean = op.pose === 'pour' ? .22 : op.pose === 'pourR' ? .14 : 0;
+  RIG.lean = (RIG.lean || 0) + (lean - (RIG.lean || 0)) * (sim.instant ? 1 : Math.min(1, dt * 5));
+  for (const n of ['Spine01', 'Spine']) {   // upper spine only (the lower one also drags the coverall's thighs); rotate about the side axis in the parent frame
+    const bone = RIG.bones[n], u = bone?.userData; if (!bone) continue;
+    if (u.leaned && bone.quaternion.equals(u.leaned)) bone.quaternion.copy(u.base);
+    (u.base ??= new THREE.Quaternion()).copy(bone.quaternion);
+    if (RIG.lean > .002) { bone.parent.getWorldQuaternion(_q).invert(); bone.quaternion.premultiply(_q2.setFromAxisAngle(_v.copy(side).applyQuaternion(_q).normalize(), -RIG.lean / 2)); }
+    (u.leaned ??= new THREE.Quaternion()).copy(bone.quaternion);
+  }
+  op.root.updateMatrixWorld(true);
+  const held = op.carry.children.find(c => c.visible !== false);
+  for (const [P, s] of [[op.L, 'Left'], [op.R, 'Right']]) {
+    const sg = s === 'Left' ? 1 : -1;
+    if (held) {   // both hands grip the sides of the carried object (two-bone IK)
+      const c = held.getWorldPosition(new THREE.Vector3());
+      const hw = held.userData.halfW ??= (() => { const bb = new THREE.Box3().setFromObject(held), sz = bb.getSize(new THREE.Vector3()); return Math.min(.3, Math.max(.07, Math.min(sz.x, sz.z) / 2)); })();
+      ikArm(s, c.addScaledVector(side, sg * (hw + .01)).add(new THREE.Vector3(0, -.02, 0)), side, sg);
+      continue;
+    }
+    const up = new THREE.Vector3(0, -1, 0).applyQuaternion(P.sh.getWorldQuaternion(_q));
+    up.addScaledVector(side, sg * .1).normalize();             // keep arms clear of the baggy suit
+    aimBone(RIG.bones[s + 'Arm'], up);
+    aimBone(RIG.bones[s + 'ForeArm'], new THREE.Vector3(0, -1, 0).applyQuaternion(P.el.getWorldQuaternion(_q)));
+    if (s === 'Right') rightHandIK(dt, side);
+  }
+  // hand anchor follows the real right hand, oriented like the driver's hand frame
+  const hb = RIG.bones.RightHand, hp = hb.getWorldPosition(new THREE.Vector3());
+  const fore = new THREE.Vector3(0, -1, 0).applyQuaternion(op.R.el.getWorldQuaternion(_q));
+  hp.addScaledVector(fore, .06);
+  RIG.hand.position.copy(op.root.worldToLocal(hp));
+  RIG.hand.quaternion.copy(op.root.getWorldQuaternion(_q2).invert().multiply(op.R.hand.getWorldQuaternion(_q)));
+}
+/* ---------- lighting realism: LED panel area lights, contact shadows, corner occlusion ---------- */
+RectAreaLightUniformsLib.init();
+const panelLights = [];
+for (const [x, z] of PANELS) {
+  const l = new THREE.RectAreaLight(0xf3f7ff, 10, .6, .6); l.position.set(x, RH - .03, z); l.rotation.x = -PI / 2; scene.add(l); panelLights.push(l);
+}
+const blobTex = (() => { const { c, tex } = canvasTex(128, 128); const g = c.createRadialGradient(64, 64, 2, 64, 64, 64); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(.3, 'rgba(0,0,0,.6)'); g.addColorStop(.7, 'rgba(0,0,0,.15)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); tex.colorSpace = THREE.NoColorSpace; return tex; })();
+function contactShadow(parent, w, d, opacity, y = .0215) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, opacity, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+  m.rotation.x = -PI / 2; m.position.y = y; m.renderOrder = 1; parent.add(m); return m;
+}
+contactShadow(T1, 1.2, 1.2, .62); contactShadow(T1col, .45, .45, .5);
+contactShadow(bench, 1.75, .95, .5); contactShadow(sehpa, .75, .75, .5); contactShadow(shelf, .6, 1.1, .5);
+// tight dark contact under every foot / leg (the reference shows crisp contact under the scale feet and table legs)
+for (const [dx, dz] of [[-.4, -.4], [.4, -.4], [-.4, .4], [.4, .4]]) contactShadow(T1, .1, .1, .75, .022).position.set(dx, .022, dz);
+for (const [dx, dz] of [[-.72, -.3], [.72, -.3], [-.72, .3], [.72, .3]]) contactShadow(bench, .1, .1, .7, .022).position.set(dx, .022, dz);
+for (const [dx, dz] of [[-.19, -.45], [.19, -.45], [-.19, .45], [.19, .45]]) contactShadow(shelf, .08, .08, .7, .022).position.set(dx, .022, dz);
+for (const [dx, dz] of [[-.25, -.25], [.25, -.25], [-.25, .25], [.25, .25]]) contactShadow(sehpa, .08, .08, .65, .022).position.set(dx, .022, dz);
+contactShadow(batchPallet, 1.45, 1.25, .45, .003); contactShadow(staging, 1.45, 1.25, .45, .003); contactShadow(jarTable, 1.0, .7, .35, .003);
+const opShadow = contactShadow(scene, .75, .55, .55, .022);   // follows the operator (kept out of op.root so the fade logic never touches it)
+// soft occlusion where walls meet the floor and the ceiling
+const aoTex = (() => { const { c, tex } = canvasTex(4, 128); const g = c.createLinearGradient(0, 128, 0, 0); g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 4, 128); tex.colorSpace = THREE.NoColorSpace; return tex; })();
+const aoMat = op => new THREE.MeshBasicMaterial({ map: aoTex, transparent: true, opacity: op, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2 });
+for (const [len, x, z, ry] of [[RW, RCX, RZ0 + .056, 0], [RD, RX1 - .056, RCZ, -PI / 2], [RD, RX0 + .056, RCZ, PI / 2], [DOOR_X0 - RX0 - .05, (RX0 + DOOR_X0) / 2, RZ1 - .056, PI], [RX1 - DOOR_X1 - .05, (DOOR_X1 + RX1) / 2, RZ1 - .056, PI]]) {
+  const lo = new THREE.Mesh(new THREE.PlaneGeometry(len, .5), aoMat(.26)); lo.position.set(x, .27, z); lo.rotation.y = ry; boothWalls.add(lo);
+  const hi = new THREE.Mesh(new THREE.PlaneGeometry(len, .45), aoMat(.2)); hi.position.set(x, RH - .225, z); hi.rotation.set(0, ry, PI); boothWalls.add(hi);
+}
+for (const [x, z, ry] of [[RX0 + .056, RZ0 + .056, PI / 4], [RX1 - .056, RZ0 + .056, -PI / 4], [RX1 - .056, RZ1 - .056, -3 * PI / 4], [RX0 + .056, RZ1 - .056, 3 * PI / 4]]) {  // vertical corner shading
+  const v = new THREE.Mesh(new THREE.PlaneGeometry(RH, .45), aoMat(.22)); v.position.set(x, RH / 2, z); v.rotation.set(0, ry, PI / 2); boothWalls.add(v);
+}
+{ // ceiling occlusion along the walls (the ceiling darkens towards its edges, as in the reference)
+  const ce = (w, d, x, z, rz) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), aoMat(.16)); m.position.set(x, RH - .002, z); m.rotation.set(PI / 2, 0, rz); ceiling.add(m); };
+  ce(RW, .4, RCX, RZ0 + .25, 0); ce(RW, .4, RCX, RZ1 - .25, PI); ce(RD, .4, RX0 + .25, RCZ, -PI / 2); ce(RD, .4, RX1 - .25, RCZ, PI / 2);
+}
+function faceAngle(a, dur = .3) {
+  const s = op.root.rotation.y, d = ((a - s + PI) % (2 * PI) + 2 * PI) % (2 * PI) - PI;
+  if (Math.abs(d) < .01) return Promise.resolve();
+  return tween(dur, k => op.root.rotation.y = s + d * k);
+}
+const faceTo = (x, z) => faceAngle(Math.atan2(x - op.root.position.x, z - op.root.position.z));
+const faceObj = o => { const p = o.getWorldPosition(new THREE.Vector3()); return faceTo(p.x, p.z); };
+const HUB = [-1.75, -2.05], DOOR_IN = [-1.9, -1.75], DOOR_OUT = [-1.9, -.55], PAL_WP = [PAL_XZ[0] - 1.0, PAL_XZ[1] + .92];
+const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const segDist = (a, b, p) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(a[0] + dx * t - p[0], a[1] + dz * t - p[1]); };
+async function walkTo(x, z) {
+  const from = [op.root.position.x, op.root.position.z], to = [x, z], pts = [];
+  const fi = inBooth(...from), ti = inBooth(...to);
+  const nearPal = p => p[0] > PAL_XZ[0] - .8 && p[1] > PAL_XZ[1] + .5;   // the far side of the batch pallet: go round it
+  if (fi !== ti) {
+    if (fi) { if (d2(from, HUB) > 1.2 && d2(from, DOOR_IN) > 1.8) pts.push(HUB); pts.push(DOOR_IN, DOOR_OUT); if (nearPal(to)) pts.push(PAL_WP); }
+    else { if (nearPal(from)) pts.push(PAL_WP); pts.push(DOOR_OUT, DOOR_IN); if (d2(to, HUB) > 1.2 && d2(to, DOOR_IN) > 1.8) pts.push(HUB); }
+  } else if (fi && (d2(from, to) > 2.2 || segDist(from, to, [T1col.position.x, T1col.position.z]) < .5) && d2(from, HUB) > .5 && d2(to, HUB) > .5) pts.push(HUB);   // keep clear of the indicator column
+  else if (!fi && nearPal(from) !== nearPal(to)) pts.push(PAL_WP);
+  pts.push(to);
+  for (const [px, pz] of pts) {
+    const p = op.root.position, dx = px - p.x, dz = pz - p.z, d = Math.hypot(dx, dz);
+    if (d < .02) continue;
+    await faceAngle(Math.atan2(dx, dz), .22);
+    const sx = p.x, sz = p.z; op.walking = !sim.instant;
+    try { await tween(d / 1.3, k => { p.x = sx + dx * k; p.z = sz + dz * k; }, lin); } finally { op.walking = false; }
+  }
+}
+async function moveObj(obj, parent, pos, rot = [0, 0, 0], dur = .45) {
+  parent.attach(obj);
+  const p0 = obj.position.clone(), q0 = obj.quaternion.clone(), q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot));
+  const p1 = pos.isVector3 ? pos.clone() : new THREE.Vector3(...pos);
+  await tween(dur, k => { obj.position.lerpVectors(p0, p1, k); obj.quaternion.slerpQuaternions(q0, q1, k); });
+}
+async function pick(obj) { await faceObj(obj); op.setPose('reach'); await wait(.25); await moveObj(obj, op.carry, obj.userData.carryPos, obj.userData.carryRot, .45); op.setPose('carry'); }
+async function place(obj, parent, pos, rot = [0, 0, 0]) { op.setPose('reach'); await moveObj(obj, parent, pos, rot, .45); await wait(.1); op.setPose('idle'); }
+
+/* laser */
+const laser = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0xff2020, transparent: true, opacity: .9 }));
+laser.visible = false; laser.frustumCulled = false; scene.add(laser);
+const laserDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff3030, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); laserDot.scale.set(.06, .06, 1); laserDot.visible = false; scene.add(laserDot);
+let laserTarget = null;
+// the scanner rides on a belt clip between scans, so both hands are free to carry sacks and pails
+const holster = new THREE.Object3D(); holster.position.set(-.24, 1.0, .02); op.root.add(holster);
+const HOLSTER_ROT = [-.2, 0, 0];
+async function scanObj(target, labelMesh) {
+  await faceObj(target);
+  const clipped = scanner.parent === holster;
+  if (clipped) { op.setPose('reachR', { obj: holster, mode: 'touch' }); await moveObj(scanner, op.handR, [0, -.06, .03], [PI / 2, 0, 0], .25); }
+  op.setPose('scan', { obj: labelMesh, mode: 'aim' }); await wait(.4);
+  laserTarget = labelMesh; laser.visible = laserDot.visible = !sim.instant;
+  await wait(.55); laser.visible = laserDot.visible = false; laserTarget = null;
+  sfx.click(); pulse('scan', -1); await wait(.15);
+  if (clipped) await moveObj(scanner, holster, [0, 0, 0], HOLSTER_ROT, .25);
+  op.setPose('idle');
+}
+
+/* powder particles */
+const PN = 500, pGeo = new THREE.BufferGeometry(), pPos = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3), pLife = new Float32Array(PN);
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const pMat = new THREE.PointsMaterial({ color: 0xf6f1e6, size: .014, transparent: true, opacity: .95 });
+const powder = new THREE.Points(pGeo, pMat); powder.frustumCulled = false; scene.add(powder);
+for (let i = 0; i < PN; i++) pPos[i * 3 + 1] = -100;
+const pour = { on: false, src: null, cont: null, acc: 0 };
+function updatePowder(dt) {
+  if (pour.on && dt > 0) {
+    pour.acc += dt * 260;
+    const mouth = pour.src.localToWorld((pour.mouth || pour.src.userData.mouth).clone());
+    const c = pour.cont.getWorldPosition(new THREE.Vector3());
+    const topY = c.y + pour.cont.userData.h * .5;
+    while (pour.acc > 1) {
+      pour.acc--;
+      const i = (Math.random() * PN) | 0;
+      pPos[i * 3] = mouth.x + (Math.random() - .5) * .03; pPos[i * 3 + 1] = mouth.y; pPos[i * 3 + 2] = mouth.z + (Math.random() - .5) * .03;
+      const tf = Math.sqrt(Math.max(.02, 2 * (mouth.y - topY) / 9.8));
+      pVel[i * 3] = (c.x - mouth.x) / tf + (Math.random() - .5) * .08; pVel[i * 3 + 1] = -.2; pVel[i * 3 + 2] = (c.z - mouth.z) / tf + (Math.random() - .5) * .08;
+      pLife[i] = topY;
+    }
+  }
+  for (let i = 0; i < PN; i++) {
+    if (pPos[i * 3 + 1] < -50) continue;
+    pVel[i * 3 + 1] -= 9.8 * dt; pPos[i * 3] += pVel[i * 3] * dt; pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt; pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt;
+    if (pPos[i * 3 + 1] < pLife[i]) pPos[i * 3 + 1] = -100;
+  }
+  pGeo.attributes.position.needsUpdate = true;
+}
+function clearPowder() { pour.on = false; for (let i = 0; i < PN; i++) pPos[i * 3 + 1] = -100; }
+
+/* guidance ring + arrow above the right scale */
+const guide = new THREE.Group(); scene.add(guide); guide.visible = false;
+const ring = mesh(new THREE.RingGeometry(.62, .7, 48).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ color: 0x2ecc71, transparent: true, opacity: .7, toneMapped: false, side: THREE.DoubleSide }), 0, .02, 0, guide, false);
+const arrow = mesh(new THREE.ConeGeometry(.08, .18, 16).rotateX(PI), new THREE.MeshBasicMaterial({ color: 0x2ecc71, toneMapped: false }), 0, 1.0, 0, guide, false);
+function setGuide(n) {
+  if (!n) { guide.visible = false; return; }
+  guide.visible = true;
+  if (n === 1) { guide.position.set(-2.65, 0, -3.2); ring.scale.setScalar(.92); ring.position.y = .02; arrow.position.y = 1.0; }
+  else { guide.position.set(-1.5, 0, -3.6); ring.scale.setScalar(.32); ring.position.y = .925; arrow.position.y = 1.45; }
+}
+
+/* device tags */
+const tags = new THREE.Group(); scene.add(tags);
+for (const [t, s, x, y, z] of [
+  ['Endüstriyel PC', 'Reçete ekranı', -.5, 2.0, -2.85], ['Terazi 1', 'Ağır tartım', -2.65, 1.3, -3.2], ['Terazi 2', 'Hassas tartım', -1.5, 1.5, -3.6],
+  ['Barkod yazıcı', null, -.68, 1.4, -3.6], ['Barkod okuyucu', null, -.4, 1.25, -3.42], ['MIRA ERP', 'XML / XLS', 1.4, 4.2, -2.3],
+  ['Depo', 'Hammadde', -8.5, 4.6, 1], ['Tartım kabini', 'GMP uyumlu', -1.8, 3.1, -1.2], ['Batch paleti', null, PAL_XZ[0], 1.3, PAL_XZ[1]]]) {
+  const sp = makeTag(t, s); sp.position.set(x, y, z); sp.userData.base = sp.scale.clone(); tags.add(sp);
+}
+
+/* ======================================================================
+   Screen state + drawing
+   ====================================================================== */
+const ITEMS0 = [
+  { code: 'HM-1021', name: 'Hammadde A', target: 25.000, tol: .050, unit: 'kg', scale: 1 },
+  { code: 'HM-2087', name: 'Hammadde B', target: 850.0, tol: 2.0, unit: 'g', scale: 2 },
+  { code: 'HM-1150', name: 'Hammadde C', target: 4.200, tol: .020, unit: 'kg', scale: 1 },
+  { code: 'HM-3304', name: 'Hammadde D', target: 120.0, tol: .5, unit: 'g', scale: 2 },
+];
+let S;
+function resetState() {
+  S = { mode: 'off', lotSel: -1, items: ITEMS0.map(i => ({ ...i, status: 'wait', actual: null })), sel: -1, weight: 0, tare: false, scanned: '', scale: 1,
+        t1: 0, t2: 0, b1: 'off', b2: 'off', erpBusy: false, log: [], wrapPct: 0 };
+  dirtyAll();
+}
+let scrDirty = true, dispDirty = true, holoDirty = true;
+const dirtyAll = () => { scrDirty = dispDirty = holoDirty = true; };
+const totalKg = () => fmt(S.items.reduce((s, i) => s + (i.actual ?? 0) / (i.unit === 'g' ? 1000 : 1), 0), 'kg');
+const erpLog = s => { S.log.unshift(s); S.log.length = Math.min(S.log.length, 6); holoDirty = true; };
+
+const scrHits = [];
+function drawScreen(now) {
+  const c = scr.c, W = 1280, H = 800; scrHits.length = 0;
+  c.fillStyle = '#0a1521'; c.fillRect(0, 0, W, H);
+  if (S.mode === 'off') { T(c, 'İPC-01', W / 2, H / 2, 40, '#24384f', 600, 'center'); scr.tex.needsUpdate = true; return; }
+  c.fillStyle = '#10233a'; c.fillRect(0, 0, W, 66);
+  T(c, 'TARTIM İSTASYONU', 28, 43, 26, '#e6eef7', 700); T(c, 'İPC-01 · Kabin 1', 300, 43, 22, '#7d97b3');
+  c.fillStyle = S.erpBusy ? '#ffb020' : '#2ecc71'; c.beginPath(); c.arc(W - 270, 34, 8, 0, 7); c.fill();
+  T(c, S.erpBusy ? 'MIRA ERP · veri aktarımı' : 'MIRA ERP · bağlı', W - 252, 42, 22, '#9fb3c8');
+  // left: work order + recipe
+  c.fillStyle = '#0f1d2e'; RR(c, 20, 86, 470, 694, 14); c.fill();
+  T(c, 'İŞ EMRİ', 44, 126, 18, '#5f7a96', 600);
+  if (S.lotSel >= 0) { T(c, 'LOT 26-1042', 44, 168, 34, '#fff', 700, 'left', MONO); T(c, 'Reçete RC-0417 · 4 kalem', 44, 202, 21, '#9fb3c8'); }
+  else T(c, 'Lot seçilmedi', 44, 168, 28, '#55708c', 500);
+  if (S.lotSel >= 0) S.items.forEach((it, i) => {
+    const y = 232 + i * 132, act = it.status === 'active', done = it.status === 'done';
+    scrHits.push({ id: 'item' + i, x: 36, y, w: 438, h: 118 });
+    c.fillStyle = act ? '#15324f' : done ? '#10291c' : '#122233'; RR(c, 36, y, 438, 118, 12); c.fill();
+    if (act) { c.strokeStyle = '#3aa0ff'; c.lineWidth = 3; RR(c, 36, y, 438, 118, 12); c.stroke(); }
+    c.fillStyle = done ? '#2ecc71' : act ? '#3aa0ff' : '#2a3f56'; c.beginPath(); c.arc(70, y + 38, 17, 0, 7); c.fill();
+    T(c, done ? '✓' : String(i + 1), 70, y + 46, 20, '#08131f', 700, 'center');
+    T(c, it.name, 100, y + 36, 24, '#e6eef7', 600); T(c, it.code, 100, y + 64, 19, '#7d97b3', 500, 'left', MONO);
+    T(c, fmt(it.target, it.unit) + ' ' + it.unit + ' ± ' + fmt(it.tol, it.unit), 100, y + 96, 20, '#b8c8d8', 500, 'left', MONO);
+    c.fillStyle = '#1d3550'; RR(c, 360, y + 18, 98, 32, 8); c.fill(); T(c, 'Terazi ' + it.scale, 409, y + 41, 18, '#9fc3e6', 600, 'center');
+    if (done) T(c, fmt(it.actual, it.unit) + ' ' + it.unit, 458, y + 96, 20, '#2ecc71', 600, 'right', MONO);
+    else if (act) T(c, 'Aktif', 458, y + 96, 19, '#3aa0ff', 600, 'right');
+  });
+  // right panel
+  const X = 510, Y = 86, PW = 750, PH = 694, cx = X + PW / 2;
+  c.fillStyle = '#0f1d2e'; RR(c, X, Y, PW, PH, 14); c.fill();
+  const it = S.items[S.sel] ?? null;
+  const banner = (bg, title, sub, icon) => {
+    c.fillStyle = bg; RR(c, X + 20, Y + 20, PW - 40, PH - 40, 14); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.16)'; c.beginPath(); c.arc(cx, Y + 230, 82, 0, 7); c.fill();
+    T(c, icon, cx, Y + 262, 92, '#fff', 700, 'center');
+    T(c, title, cx, Y + 395, 46, '#fff', 700, 'center');
+    (Array.isArray(sub) ? sub : [sub]).forEach((s, i) => T(c, s, cx, Y + 452 + i * 42, 27, 'rgba(255,255,255,.88)', 500, 'center'));
+  };
+  const itemHead = () => {
+    if (!it) return;
+    T(c, it.name, X + 36, Y + 56, 30, '#fff', 700); T(c, it.code, X + 36, Y + 90, 21, '#7d97b3', 500, 'left', MONO);
+    c.fillStyle = '#1d3550'; RR(c, X + PW - 170, Y + 30, 134, 40, 9); c.fill(); T(c, 'Terazi ' + it.scale, X + PW - 103, Y + 58, 21, '#9fc3e6', 600, 'center');
+  };
+  switch (S.mode) {
+    case 'idle': {
+      T(c, "MIRA ERP'den iş emri bekleniyor", cx, Y + 330, 32, '#b8c8d8', 500, 'center');
+      c.strokeStyle = '#3aa0ff'; c.lineWidth = 8; c.beginPath(); const a = now * .004; c.arc(cx, Y + 420, 34, a, a + 4.2); c.stroke(); break;
+    }
+    case 'lots': {
+      T(c, 'Lot seçin', X + 36, Y + 60, 30, '#fff', 700);
+      [['LOT 26-1042', 'RC-0417 · 4 kalem', 'Bugün 08:30'], ['LOT 26-1043', 'RC-0422 · 6 kalem', 'Bugün 11:00'], ['LOT 26-1044', 'RC-0417 · 4 kalem', 'Bugün 14:30']].forEach((l, i) => {
+        const y = Y + 100 + i * 150, sel = S.lotSel === i;
+        scrHits.push({ id: 'lot' + i, x: X + 30, y, w: PW - 60, h: 128 });
+        c.fillStyle = sel ? '#15324f' : '#122233'; RR(c, X + 30, y, PW - 60, 128, 12); c.fill();
+        if (sel) { c.strokeStyle = '#3aa0ff'; c.lineWidth = 4; RR(c, X + 30, y, PW - 60, 128, 12); c.stroke(); }
+        T(c, l[0], X + 60, y + 56, 34, '#fff', 700, 'left', MONO); T(c, l[1], X + 60, y + 96, 22, '#9fb3c8'); T(c, l[2], X + PW - 60, y + 56, 22, '#7d97b3', 500, 'right');
+      });
+      break;
+    }
+    case 'recipe': {
+      T(c, 'Tartılacak ürünü seçin', cx, Y + 320, 34, '#e6eef7', 600, 'center');
+      T(c, 'Reçetede sıradaki kalemi seçerek başlayın', cx, Y + 368, 24, '#7d97b3', 400, 'center');
+      if (opMode && S.items.filter(x => x.status === 'done').length >= 2 && S.items.some(x => x.status !== 'done')) {
+        c.fillStyle = '#1d3550'; RR(c, X + 140, Y + 460, PW - 280, 76, 12); c.fill(); c.strokeStyle = '#3aa0ff'; c.lineWidth = 2; c.stroke();
+        T(c, 'Kalan kalemleri otomatik tamamla', cx, Y + 508, 26, '#cfe3f7', 600, 'center'); scrHits.push({ id: 'auto', x: X + 140, y: Y + 460, w: PW - 280, h: 76 });
+      }
+      break;
+    }
+    case 'scan': {
+      itemHead();
+      const blink = Math.sin(now * .008) > 0;
+      c.strokeStyle = blink ? '#ffb020' : 'rgba(255,176,32,.35)'; c.lineWidth = 5; RR(c, X + 30, Y + 130, PW - 60, PH - 160, 14); c.stroke();
+      c.fillStyle = '#ffb020'; c.beginPath(); c.arc(cx, Y + 270, 70, 0, 7); c.fill(); T(c, '▮▯▮', cx, Y + 290, 54, '#0a1521', 700, 'center');
+      T(c, 'Barkod okuyucuyu alın', cx, Y + 410, 38, '#fff', 700, 'center');
+      T(c, 'Hammadde çuvalındaki barkodu okutun', cx, Y + 458, 26, '#c3d1e0', 400, 'center');
+      T(c, 'Beklenen: ' + (it ? it.code : ''), cx, Y + 520, 26, '#ffb020', 600, 'center', MONO); break;
+    }
+    case 'scanError': banner('#b42318', 'YANLIŞ HAMMADDE', ['Okutulan: ' + S.scanned + '   Beklenen: ' + it.code, 'Doğru ürünü depodan getirin.'], '✕'); break;
+    case 'scaleGuide': banner('#15603a', 'Hammadde doğrulandı', [it.code + ' · ' + it.name, 'Terazi ' + it.scale + "'" + (it.scale === 1 ? 'e' : 'ye') + ' geçin.'], '✓'); break;
+    case 'wrongScale': banner('#b54708', 'YANLIŞ TERAZİ', ['Bu ürün Terazi ' + it.scale + "'de tartılmalı.", 'Yeşil işaretli teraziye geçin.'], '!'); break;
+    case 'weigh': case 'tolError': case 'ok': {
+      itemHead();
+      const dev = S.weight - it.target, inTol = Math.abs(dev) <= it.tol, near = S.weight > it.target - it.tol * 12;
+      T(c, S.tare ? 'Dara alındı ✓' : 'Dara bekleniyor', X + 36, Y + 140, 22, S.tare ? '#2ecc71' : '#ffb020', 600);
+      const col = S.mode === 'tolError' ? '#ff4d4f' : S.mode === 'ok' || (near && inTol) ? '#2ecc71' : '#ffffff';
+      T(c, fmt(S.weight, it.unit), cx + 60, Y + 300, 150, col, 600, 'right', MONO); T(c, it.unit, cx + 80, Y + 300, 56, '#7d97b3', 500, 'left', MONO);
+      T(c, 'Hedef ' + fmt(it.target, it.unit) + ' ± ' + fmt(it.tol, it.unit) + ' ' + it.unit, cx, Y + 356, 26, '#9fb3c8', 500, 'center', MONO);
+      // progress + tolerance gauge
+      const gx = X + 60, gw = PW - 120, gy = Y + 400;
+      c.fillStyle = '#1a2c40'; RR(c, gx, gy, gw, 18, 9); c.fill();
+      c.fillStyle = col === '#ffffff' ? '#3aa0ff' : col; RR(c, gx, gy, gw * Math.min(1, Math.max(0, S.weight / it.target)), 18, 9); c.fill();
+      const ty = gy + 50, range = it.tol * 6;
+      c.fillStyle = '#1a2c40'; RR(c, gx, ty, gw, 40, 8); c.fill();
+      c.fillStyle = 'rgba(46,204,113,.35)'; c.fillRect(gx + gw / 2 - gw * it.tol / range / 2, ty, gw * it.tol / range, 40);
+      c.fillStyle = '#2ecc71'; c.fillRect(gx + gw / 2 - 1, ty - 6, 2, 52);
+      if (near) { const mx = gx + gw / 2 + Math.max(-.5, Math.min(.5, dev / range)) * gw; c.fillStyle = col; c.beginPath(); c.moveTo(mx, ty - 2); c.lineTo(mx - 12, ty - 20); c.lineTo(mx + 12, ty - 20); c.fill(); c.fillRect(mx - 2, ty, 4, 40); }
+      T(c, '−' + fmt(it.tol, it.unit), gx + gw / 2 - gw * it.tol / range / 2, ty + 70, 18, '#7d97b3', 500, 'center', MONO);
+      T(c, '+' + fmt(it.tol, it.unit), gx + gw / 2 + gw * it.tol / range / 2, ty + 70, 18, '#7d97b3', 500, 'center', MONO);
+      const by = Y + PH - 150;
+      if (S.mode === 'tolError') { c.fillStyle = '#b42318'; RR(c, X + 30, by, PW - 60, 120, 12); c.fill(); T(c, 'TOLERANS DIŞI  ' + (dev > 0 ? '+' : '−') + fmt(Math.abs(dev), it.unit) + ' ' + it.unit, cx, by + 52, 34, '#fff', 700, 'center'); T(c, dev > 0 ? 'Fazla miktarı alın ve tekrar onaylayın.' : 'Eksik miktarı ekleyin ve tekrar onaylayın.', cx, by + 94, 24, '#ffe4e4', 500, 'center'); }
+      else if (S.mode === 'ok') { c.fillStyle = '#15603a'; RR(c, X + 30, by, PW - 60, 120, 12); c.fill(); T(c, '✓  TOLERANS İÇİNDE', cx, by + 52, 34, '#fff', 700, 'center'); T(c, 'Barkod etiketi yazdırılıyor', cx, by + 94, 24, '#d1fadf', 500, 'center'); }
+      else { c.fillStyle = '#16314d'; RR(c, X + 30, by, PW - 60, 120, 12); c.fill(); T(c, S.tare ? 'Ürünü kaba aktarın, sonra ONAY düğmesine basın' : 'Boş kabı teraziye koyun ve darayı alın', cx, by + 70, 26, '#cfe3f7', 500, 'center'); }
+      break;
+    }
+    case 'labelWait': banner('#15603a', 'Etiketi yapıştırın', ['Yazıcıdaki etiketi kaba yapıştırın', 've barkod okuyucuyla okutun.'], '▮▯▮'); break;
+    case 'verify': banner('#15603a', 'Etiket doğrulandı', [it.code + ' · ' + fmt(it.actual, it.unit) + ' ' + it.unit, S.erpBusy ? "MIRA ERP'ye kaydediliyor…" : "MIRA ERP'ye kaydedildi"], '✓'); break;
+    case 'batch': {
+      T(c, 'Tüm kalemler tamamlandı', cx, Y + 250, 40, '#2ecc71', 700, 'center');
+      T(c, "Batch'i streç filmle sarın", cx, Y + 310, 30, '#e6eef7', 500, 'center');
+      c.fillStyle = '#1a2c40'; RR(c, X + 80, Y + 380, PW - 160, 24, 12); c.fill();
+      c.fillStyle = '#3aa0ff'; RR(c, X + 80, Y + 380, (PW - 160) * S.wrapPct, 24, 12); c.fill();
+      T(c, 'Toplam ' + totalKg() + ' kg · 4 kalem', cx, Y + 470, 26, '#9fb3c8', 500, 'center', MONO); break;
+    }
+    case 'qr': case 'done': {
+      drawQR(c, X + 60, Y + 150, 300, 'BATCH-26-1042');
+      T(c, S.mode === 'done' ? 'İş emri tamamlandı' : 'Batch QR etiketi', X + 410, Y + 190, 34, S.mode === 'done' ? '#2ecc71' : '#fff', 700);
+      T(c, 'LOT 26-1042', X + 410, Y + 250, 28, '#e6eef7', 600, 'left', MONO);
+      T(c, 'Reçete RC-0417', X + 410, Y + 292, 24, '#9fb3c8'); T(c, '4 kalem', X + 410, Y + 334, 24, '#9fb3c8');
+      T(c, totalKg() + ' kg', X + 410, Y + 392, 40, '#fff', 700, 'left', MONO);
+      T(c, S.mode === 'done' ? "MIRA ERP'de kapatıldı ✓" : "QR'ı batch'e yapıştırın ve okutun", X + 410, Y + 446, 22, S.mode === 'done' ? '#2ecc71' : '#ffb020', 600);
+      break;
+    }
+  }
+  scr.tex.needsUpdate = true;
+}
+function drawDisplays() {
+  for (const [d, v, unit, w, h] of [[T1disp, S.t1, 'kg', 256, 96], [T2disp, S.t2, 'g', 256, 80]]) {
+    const c = d.c; c.fillStyle = '#061109'; c.fillRect(0, 0, w, h);
+    T(c, fmt(v, unit), w - 52, h * .72, h * .62, '#4ade80', 600, 'right', MONO); T(c, unit, w - 12, h * .72, h * .3, '#4ade80', 500, 'right', MONO);
+    d.tex.needsUpdate = true;
+  }
+}
+function drawHolo() {
+  const c = holo.c, W = 1024, H = 600; c.clearRect(0, 0, W, H);
+  c.fillStyle = 'rgba(14,40,72,.72)'; RR(c, 6, 6, W - 12, H - 12, 26); c.fill();
+  c.strokeStyle = 'rgba(90,180,255,.8)'; c.lineWidth = 4; c.stroke();
+  T(c, 'MIRA ERP', 44, 88, 64, '#fff', 700); T(c, 'XML / XLS entegrasyon', 46, 132, 28, '#9fd0ff');
+  c.fillStyle = S.erpBusy ? '#ffb020' : '#2ecc71'; c.beginPath(); c.arc(W - 70, 74, 14, 0, 7); c.fill();
+  T(c, 'İş emri  LOT 26-1042', 46, 196, 32, '#e6eef7', 600);
+  S.log.forEach((l, i) => T(c, '• ' + l, 46, 252 + i * 50, 28, i === 0 ? '#ffffff' : '#a8c4e0', i === 0 ? 600 : 400));
+  holo.tex.needsUpdate = true;
+}
+function setBeacon(mesh, state, t) {
+  const m = mesh.material, on = state === 'green' || state === 'red' || (state === 'redflash' && Math.sin(t * 18) > 0);
+  const col = state === 'green' ? 0x22ff77 : 0xff2a2a;
+  m.color.setHex(on ? col : 0x333333); m.emissive.setHex(on ? col : 0); m.emissiveIntensity = on ? 2.2 : 0;
+}
+
+/* scale helpers */
+function setW(n, v) { S['t' + n] = v; if (['weigh', 'tolError', 'ok'].includes(S.mode)) S.weight = v; dispDirty = scrDirty = true; }
+let lastPulse = 0;
+async function erpSend(tag, log) {
+  S.erpBusy = true; dirtyAll(); sfx.data();
+  await runAlong(erpCurve, -1, 1.6, { tag, color: 0x8fe3a8, size: .3 });
+  S.erpBusy = false; erpLog(log); dirtyAll();
+}
+
+/* ======================================================================
+   Reusable scenario actions
+   ====================================================================== */
+const STAND = { pc: [-1.0, -2.85], t1: [-2.65, -2.5], sehpa: [-2.42, -1.95], shelf: [-1.05, -1.75], t2: [-1.5, -2.95], printer: [-.68, -2.95], pallet: [PAL_XZ[0], PAL_XZ[1] + .92] };
+const SEHPA_TOP = new THREE.Vector3(-3.0, .655, -1.95);
+async function goPC() { await walkTo(-.62, STAND.pc[1]); await faceAngle(PI / 2); }   // within arm's reach of the touch screen
+async function selectItem(i) {
+  await goPC(); op.setPose('type', { obj: screenMesh, mode: 'touch', off: [0, -.15, .06] }); await wait(.5); sfx.click();
+  S.sel = i; S.items[i].status = 'active'; S.mode = 'scan'; scrDirty = true; sfx.warn(); await wait(.5); op.setPose('idle');
+}
+async function fetchMat(obj) {
+  await walkTo(...obj.userData.stand); await pick(obj);
+  await walkTo(...STAND.sehpa); await faceTo(SEHPA_TOP.x, SEHPA_TOP.z);
+  const pos = SEHPA_TOP.clone(); if (obj.userData.label.geometry.type === 'CylinderGeometry') pos.y = .565;
+  await place(obj, scene, pos, [0, .5, 0]);
+}
+async function returnMat(obj) {
+  await walkTo(...STAND.sehpa); await pick(obj);
+  await walkTo(...obj.userData.stand); const ini = obj.userData.init;
+  await faceTo(ini.pos.x, ini.pos.z); op.setPose('reach');
+  await moveObj(obj, scene, ini.pos, [0, 0, 0], .45); op.setPose('idle');
+}
+async function containerToScale(cont, n) {
+  if (n === 1) { await walkTo(...STAND.shelf); await pick(cont); await walkTo(...STAND.t1); await faceAngle(PI); await place(cont, T1top, [0, 0, 0]); }
+  else { await walkTo(...STAND.t2); await faceAngle(PI); await pick(cont); await place(cont, T2top, [0, 0, 0]); }
+  S.mode = 'weigh'; S.tare = false; setW(n, n === 1 ? 1.240 : 38.6); pulse('t' + n, -1);
+}
+async function tare(n) {
+  if (n === 1) { await faceObj(T1btn); } op.setPose('press', { obj: n === 1 ? T1tare : T2tare, mode: 'touch' }); await wait(.35); sfx.click();
+  S.tare = true; setW(n, 0); pulse('t' + n, -1); await wait(.25); op.setPose('idle'); if (n === 1) await faceAngle(PI);
+}
+async function pourInto(src, cont, n, from, to, dur) {
+  op.setPose(n === 1 ? 'pour' : 'pourR');
+  await moveObj(src, op.carry, src.userData.pourPos, src.userData.pourRot, .5);
+  pour.src = src; pour.cont = cont; pour.mouth = src.userData.pourMouth || null; pour.on = !sim.instant;
+  const it = S.items[S.sel], unitScale = it.unit === 'g' ? 1 : 1;
+  await tween(dur, k => {
+    const v = from + (to - from) * k + (k < 1 ? (Math.random() - .5) * it.tol * .6 : 0);
+    setW(n, Math.max(0, v)); setFill(cont, (from + (to - from) * k) / it.target * unitScale);
+    if (sim.time - lastPulse > .45) { lastPulse = sim.time; pulse('t' + n, -1); }
+  }, easeOut);
+  pour.on = false; setW(n, to);
+  await moveObj(src, op.carry, src.userData.carryPos, src.userData.carryRot, .4); op.setPose('carry');
+}
+async function confirm(n) {
+  if (n === 1) await faceObj(T1btn);
+  op.setPose('press', { obj: n === 1 ? T1btn : T2btn, mode: 'touch' }); await wait(.35); sfx.click(); await wait(.15); op.setPose('idle');
+  const it = S.items[S.sel], ok = Math.abs(S.weight - it.target) <= it.tol;
+  if (ok) { it.actual = S.weight; S.mode = 'ok'; S['b' + n] = 'green'; sfx.ok(); }
+  else { S.mode = 'tolError'; S['b' + n] = 'redflash'; sfx.err(); }
+  scrDirty = true; return ok;
+}
+async function printAndStick(i, cont, standBack) {
+  const L = prodLabels[i]; drawProdLabel(i); L.visible = true; L.position.set(0, .07, .12);
+  pulse('printer', 1); sfx.print(); await tween(.9, k => L.position.z = .12 + k * .09, lin);
+  await walkTo(...STAND.printer); await faceAngle(PI); op.setPose('reachR', { obj: L, mode: 'touch' }); await wait(.2);
+  await moveObj(L, op.handR, [0, -.07, .05], [PI / 2, 0, 0], .35); op.setPose('idle');
+  await walkTo(...standBack); await faceObj(cont); op.setPose('reach');
+  await moveObj(L, cont, cont.userData.labelPos, [0, 0, 0], .5); await wait(.1); op.setPose('idle');
+}
+async function verifyAndRecord(i, cont) {
+  const it = S.items[i];
+  await scanObj(cont, prodLabels[i]); S.mode = 'verify'; scrDirty = true; sfx.ok();
+  await erpSend('Kayıt · ' + it.code + ' · ' + fmt(it.actual, it.unit) + ' ' + it.unit, it.code + '  ' + fmt(it.actual, it.unit) + ' ' + it.unit + '  ✓');
+  it.status = 'done'; scrDirty = true;
+}
+async function toPallet(i, cont) {
+  await pick(cont); await walkTo(...STAND.pallet); await faceAngle(PI);
+  await place(cont, batchPallet, SLOTS[i], [0, 0, 0]);
+  S.b1 = S.b2 = 'off'; setGuide(0); S.sel = -1; S.mode = S.items.every(x => x.status === 'done') ? 'batch' : 'recipe'; scrDirty = true;
+}
+async function quickItem(i) {
+  const it = S.items[i], mat = MATS[i], cont = CONTS[i], n = it.scale;
+  await selectItem(i);
+  await fetchMat(mat); await scanObj(mat, mat.userData.label);
+  S.mode = 'scaleGuide'; S.scale = n; S['b' + n] = 'green'; setGuide(n); scrDirty = true; sfx.ok();
+  if (n === 1) { await containerToScale(cont, 1); await tare(1); await walkTo(...STAND.sehpa); await pick(mat); await walkTo(...STAND.t1); await faceAngle(PI); }
+  else { await walkTo(...STAND.sehpa); await pick(mat); await walkTo(...STAND.t2); await faceAngle(PI); await place(mat, scene, [-1.72, .9, -3.42]); await containerToScale(cont, 2); await tare(2); await pick(mat); }
+  const fin = it.target + it.tol * .3;
+  await pourInto(mat, cont, n, 0, fin, 2.2);
+  if (n === 1) { await walkTo(...STAND.sehpa); await faceTo(SEHPA_TOP.x, SEHPA_TOP.z); await place(mat, scene, SEHPA_TOP, [0, .5, 0]); mat.scale.y = .4; await walkTo(...STAND.t1); await faceAngle(PI); }
+  else await place(mat, scene, [-1.7, .9, -3.3]);
+  await confirm(n);
+  await printAndStick(i, cont, n === 1 ? STAND.t1 : STAND.t2);
+  await verifyAndRecord(i, cont);
+  await toPallet(i, cont);
+}
+
+/* ======================================================================
+   Steps (scenario from the notebook)
+   ====================================================================== */
+const CAM_REF = [[-2.6, 1.5, 2.9], [-1.9, 1.0, -2.6]];   // the Higgsfield reference photo's viewpoint: from the depo through the open door
+const CAM_DEPO = [[-2.4, 3.0, 2.6], [-5.6, .6, -.8]], CAM_SEHPA = [[-3.2, 2.1, -3.6], [-2.85, .75, -1.95]], CAM_PC = [[-2.1, 1.85, -1.75], [-.4, 1.4, -2.95]];
+const STEPS = [
+  { t: 'Sisteme genel bakış', cam: CAM_REF,
+    c: 'Depo, GMP uyumlu tartım kabini ve MIRA ERP. Kabinde endüstriyel PC, iki terazi, barkod okuyucu ve barkod yazıcı var.',
+    run: async () => { await wait(1); } },
+  { t: 'MIRA ERP iş emrini gönderir', cam: [[3.6, 3.5, 1.0], [.6, 2.3, -2.6]],
+    c: "MIRA ERP, lot numarası ve reçete bilgisini XML veya XLS dosyasıyla endüstriyel PC'ye gönderir.",
+    run: async () => { S.mode = 'idle'; scrDirty = true; await wait(.6); S.erpBusy = true; dirtyAll(); sfx.data(); await runAlong(erpCurve, 1, 1.8, { tag: 'XML · Lot + Reçete', size: .3 }); S.erpBusy = false; erpLog('Gönderildi: LOT 26-1042 / RC-0417'); S.mode = 'lots'; dirtyAll(); sfx.ok(); await wait(.5); } },
+  { t: 'Lot seçimi', cam: CAM_PC,
+    c: 'Operatör ekrandan lot numarasını seçer. Reçete bilgisi ekrana gelir.',
+    run: async () => { await goPC(); op.setPose('type', { obj: screenMesh, mode: 'touch', off: [0, -.15, .06] }); await wait(.6); S.lotSel = 0; scrDirty = true; sfx.click(); await wait(1); S.mode = 'recipe'; scrDirty = true; await wait(.3); op.setPose('idle'); } },
+  { t: 'Reçeteden ürün seçimi', cam: CAM_PC,
+    c: 'Reçeteden ilk ürün seçilir. Ekran uyarı verir ve operatör barkod okuyucuyu alır.',
+    run: async () => { await selectItem(0); await faceObj(scanner); op.setPose('reachR', { obj: scanner, mode: 'touch' }); await wait(.25); await moveObj(scanner, op.handR, [0, -.06, .03], [PI / 2, 0, 0], .35); op.setPose('idle'); await wait(.3); await moveObj(scanner, holster, [0, 0, 0], HOLSTER_ROT, .3); } },
+  { t: 'Hammadde depodan getirilir', cam: CAM_DEPO,
+    c: 'Operatör depoya gider ve reçetedeki hammadde çuvalını kabine getirir.',
+    run: async () => { await fetchMat(sackWrong); } },
+  { t: 'Barkod kontrolü: yanlış hammadde', cam: CAM_SEHPA,
+    c: 'Çuvalın barkodu okutulur. Ürün reçeteyle eşleşmediği için sistem ikaz verir ve doğru ürünün getirilmesini ister.',
+    run: async () => { await scanObj(sackWrong, sackWrong.userData.label); S.scanned = 'HM-1180'; S.mode = 'scanError'; S.b1 = S.b2 = 'redflash'; scrDirty = true; sfx.err(); await wait(1.8); S.b1 = S.b2 = 'off'; } },
+  { t: 'Doğru hammadde, terazi açılır', cam: CAM_DEPO,
+    c: 'Yanlış çuval depoya geri bırakılır, doğru ürün getirilir. Barkod eşleşince ekran ürünün tartılacağı teraziyi gösterir.',
+    run: async () => { S.mode = 'scan'; scrDirty = true; await returnMat(sackWrong); await fetchMat(sackA); cam(...CAM_SEHPA); await scanObj(sackA, sackA.userData.label); S.mode = 'scaleGuide'; S.scale = 1; S.b1 = 'green'; setGuide(1); scrDirty = true; sfx.ok(); await wait(.8); } },
+  { t: 'Kap teraziye konur, dara alınır', cam: [[-.45, 2.3, -1.4], [-2.65, .4, -3.2]],
+    c: 'Boş kap Terazi 1’e konur ve darası alınır. Gösterge sıfırlanır.',
+    run: async () => { await containerToScale(cont1, 1); await wait(.4); await tare(1); } },
+  { t: 'Ürün kaba aktarılır', cam: [[-1.2, 1.55, -2.35], [-2.65, .75, -2.9]],
+    c: 'Çuvaldaki hammadde kaba aktarılır. Ağırlık hem terazi göstergesinde hem PC ekranında canlı izlenir.',
+    run: async () => { await walkTo(...STAND.sehpa); await pick(sackA); await walkTo(...STAND.t1); await faceAngle(PI); await pourInto(sackA, cont1, 1, 0, 25.020, 4.2); await walkTo(...STAND.sehpa); await faceTo(SEHPA_TOP.x, SEHPA_TOP.z); await place(sackA, scene, SEHPA_TOP, [0, .5, 0]); await tween(.3, k => sackA.scale.y = 1 - .6 * k); await walkTo(...STAND.t1); await faceAngle(PI); } },
+  { t: 'Onay ve tolerans kontrolü', cam: [[-1.0, 1.8, -1.6], [-2.2, 1.0, -3.0]],
+    c: 'Onay düğmesine basılır. Sistem tartımın tolerans içinde olduğunu kontrol eder: 25,020 kg, hedef 25,000 ± 0,050 kg.',
+    run: async () => { await confirm(1); await wait(1); } },
+  { t: 'Barkod etiketi basılır', cam: [[-1.9, 1.75, .2], [-1.6, .9, -3.2]],
+    c: 'Barkod yazıcı ürün etiketini basar. Etiket kabın üzerine yapıştırılır.',
+    run: async () => { await printAndStick(0, cont1, STAND.t1); cam([-1.0, 1.85, -1.6], [-2.65, .6, -3.1]); await wait(.6); } },
+  { t: 'Teyit ve MIRA kaydı', cam: [[-1.0, 1.85, -1.6], [-2.65, .6, -3.1]],
+    c: "Etiket tekrar okutularak doğrulanır. İşlem MIRA ERP'ye kaydedilir ve kap batch paletine alınır.",
+    run: async () => { await verifyAndRecord(0, cont1); cam([PAL_XZ[0] - 2.4, 2.4, PAL_XZ[1] + 2.6], [PAL_XZ[0], .4, PAL_XZ[1]]); await toPallet(0, cont1); } },
+  { t: 'Sıradaki ürün: doğru terazi uyarısı', cam: [[-1.9, 2.0, .6], [-2.0, .7, -3.0]],
+    c: 'Sıradaki ürün seçilir. Reçetede hangi terazinin kullanılacağı tanımlı; ürün yanlış teraziye götürülürse sistem uyarır.',
+    run: async () => {
+      await selectItem(1); await fetchMat(jarB); await scanObj(jarB, jarB.userData.label);
+      S.mode = 'scaleGuide'; S.scale = 2; S.b2 = 'green'; setGuide(2); scrDirty = true; sfx.ok();
+      await pick(jarB); await walkTo(...STAND.t1); await faceAngle(PI);
+      S.mode = 'wrongScale'; S.b1 = 'redflash'; scrDirty = true; sfx.err(); await wait(1.6); S.b1 = 'off';
+      await walkTo(...STAND.t2); await faceAngle(PI); await place(jarB, scene, [-1.72, .9, -3.42]);
+    } },
+  { t: 'Hassas tartım: tolerans dışı', cam: [[-.45, 2.1, -1.75], [-1.5, .98, -3.6]],
+    c: 'Hassas terazide kabın darası alınır ve ürün eklenir. 862,0 g okunur; hedef 850,0 ± 2,0 g olduğu için sistem tolerans dışı uyarısı verir.',
+    run: async () => { await containerToScale(cup2, 2); await wait(.3); await tare(2); await pick(jarB); await pourInto(jarB, cup2, 2, 0, 862.0, 3.2); await place(jarB, scene, [-1.72, .9, -3.42]); await confirm(2); await wait(1.2); } },
+  { t: 'Düzeltme, onay ve kayıt', cam: [[-.45, 2.1, -1.75], [-1.5, .98, -3.6]],
+    c: "Operatör fazla miktarı alır. Değer tolerans içine girince onaylanır; etiket basılır, okutulur ve kayıt MIRA ERP'ye gider.",
+    run: async () => {
+      S.mode = 'weigh'; S.b2 = 'green'; scrDirty = true; op.setPose('reachR', { obj: cup2, mode: 'touch' });
+      for (const v of [858.4, 854.1, 851.3, 850.6]) { await wait(.55); setW(2, v); setFill(cup2, v / 850); pulse('t2', -1); }
+      op.setPose('idle'); await wait(.3); await confirm(2); await wait(.6);
+      await printAndStick(1, cup2, STAND.t2); await verifyAndRecord(1, cup2); await toPallet(1, cup2);
+    } },
+  { t: 'Kalan ürünler', cam: [[1.4, 4.6, 2.6], [-2.8, .3, -1.8]], fast: 3,
+    c: 'Aynı döngü reçetedeki tüm ürünler için tekrarlanır: seçim, barkod kontrolü, doğru terazi, dara, tartım, etiket ve kayıt.',
+    run: async () => { await quickItem(2); await quickItem(3); } },
+  { t: 'Batch streçlenir', cam: [[PAL_XZ[0] - 2.2, 2.2, PAL_XZ[1] + 2.4], [PAL_XZ[0], .45, PAL_XZ[1]]],
+    c: "Tüm malzemeler tamamlanınca ekran batch'in streçlenmesini ister. Palet streç filmle sarılır.",
+    run: async () => {
+      S.mode = 'batch'; scrDirty = true; await walkTo(...STAND.pallet); await faceTo(...PAL_XZ);
+      filmRoll.visible = true; await moveObj(filmRoll, op.carry, [0, .1, .1], [0, 0, 0], .01); op.setPose('wrap');
+      wrap.visible = true; const P = op.root.position, R = .92, a0 = Math.atan2(P.x - PAL_XZ[0], P.z - PAL_XZ[1]);
+      op.walking = !sim.instant;
+      try {
+        await tween(7, k => {
+          const a = a0 - k * 4 * PI; P.x = PAL_XZ[0] + Math.sin(a) * R; P.z = PAL_XZ[1] + Math.cos(a) * R;
+          op.root.rotation.y = a + PI; wrap.scale.y = Math.max(.001, .44 * k); wrap.position.y = .14 + .22 * k; S.wrapPct = k; scrDirty = true;
+        }, lin);
+      } finally { op.walking = false; }
+      filmRoll.visible = false; op.setPose('idle');
+    } },
+  { t: 'Batch QR etiketi', cam: [[PAL_XZ[0] - .6, 1.45, PAL_XZ[1] + 2.2], [PAL_XZ[0], .5, PAL_XZ[1] + .3]],
+    c: 'Toplam ürün ve ağırlık bilgilerini içeren QR kod basılır ve batch’in üzerine yapıştırılır.',
+    run: async () => {
+      S.mode = 'qr'; scrDirty = true; drawQRLabel(); qrLabel.visible = true; qrLabel.position.set(0, .07, .12);
+      pulse('printer', 1); sfx.print(); await tween(1, k => qrLabel.position.z = .12 + k * .12, lin);
+      await walkTo(...STAND.printer); await faceAngle(PI); op.setPose('reachR', { obj: qrLabel, mode: 'touch' }); await wait(.2);
+      await moveObj(qrLabel, op.handR, [0, -.08, .06], [PI / 2, 0, 0], .35); op.setPose('idle');
+      await walkTo(...STAND.pallet); await faceAngle(PI); op.setPose('reach');
+      await moveObj(qrLabel, batchPallet, [0, .38, .525], [0, 0, 0], .5); op.setPose('idle');
+    } },
+  { t: "MIRA ERP'de kayıt tamamlanır", cam: [[2.2, 5.6, 4.6], [-2.8, .5, -1.8]], orbit: true,
+    c: 'QR okutulur ve iş emri MIRA ERP’de kapanır. Her tartım; lot, ürün, terazi, ağırlık ve zaman bilgisiyle izlenebilir.',
+    run: async () => {
+      await scanObj(qrLabel, qrLabel); sfx.ok();
+      await erpSend('Batch · LOT 26-1042 · ' + totalKg() + ' kg', 'Batch kapatıldı · ' + totalKg() + ' kg ✓');
+      S.mode = 'done'; dirtyAll(); await wait(1.5);
+    } },
+];
+
+/* ======================================================================
+   Camera (cinematic) + VR placement
+   ====================================================================== */
+const camS = { p0: new THREE.Vector3(), t0: new THREE.Vector3(), p1: new THREE.Vector3(...CAM_REF[0]), t1: new THREE.Vector3(...CAM_REF[1]), k: 1, dur: 1.8, target: new THREE.Vector3(...CAM_REF[1]), orbit: false };
+let freeCam = false;
+function cam(p, t, dur = 1.8) {
+  if (sim.instant) return;
+  camS.p0.copy(camera.position); camS.t0.copy(camS.target); camS.p1.set(...p); camS.t1.set(...t); camS.k = 0; camS.dur = dur;
+  if (renderer.xr.isPresenting) placeRig(p, t);
+}
+function placeRig(p, t) {
+  const eye = 1.6, y = Math.max(0, p[1] - eye);
+  rig.position.set(p[0], y, p[2]); rig.rotation.set(0, Math.atan2(-(t[0] - p[0]), -(t[2] - p[2])), 0);
+}
+function updateCamera(dt, now) {
+  if (freeCam || opMode || renderer.xr.isPresenting) return;
+  if (camS.k < 1) camS.k = Math.min(1, camS.k + dt / camS.dur);
+  const e = easeIO(camS.k);
+  const p = camS.p0.clone().lerp(camS.p1, e); camS.target.copy(camS.t0).lerp(camS.t1, e);
+  if (camS.orbit) { const a = (now * .00004) % (2 * PI); const v = p.clone().sub(camS.target); v.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(a * 6) * .35); p.copy(camS.target).add(v); }
+  p.x += Math.sin(now * .00031) * .04; p.y += Math.sin(now * .00023) * .03;
+  camera.position.copy(p); camera.lookAt(camS.target);
+}
+
+/* VR caption panel */
+const vrCap = canvasTex(1024, 300);
+const vrPanel = new THREE.Mesh(new THREE.PlaneGeometry(1.4, .41), new THREE.MeshBasicMaterial({ map: vrCap.tex, transparent: true, toneMapped: false }));
+vrPanel.position.set(0, 1.05, -1.3); vrPanel.rotation.x = -.35; vrPanel.visible = false; rig.add(vrPanel);
+function drawVrCap(n, title, text) {
+  const c = vrCap.c; c.clearRect(0, 0, 1024, 300); c.fillStyle = 'rgba(9,18,31,.88)'; RR(c, 4, 4, 1016, 292, 26); c.fill();
+  T(c, 'ADIM ' + String(n + 1).padStart(2, '0') + ' / ' + STEPS.length + '  ·  ' + title, 36, 62, 34, '#3aa0ff', 600);
+  c.font = `400 32px ${FONT}`; c.fillStyle = '#fff'; c.textAlign = 'left';
+  let line = '', y = 120; for (const w of text.split(' ')) { if (c.measureText(line + w).width > 950) { c.fillText(line, 36, y); y += 44; line = ''; } line += w + ' '; } c.fillText(line, 36, y);
+  T(c, 'Tetik: sonraki adım', 988, 274, 22, '#7d97b3', 400, 'right'); vrCap.tex.needsUpdate = true;
+}
+
+/* ======================================================================
+   Step runner
+   ====================================================================== */
+let cur = -1, playing = true, ended = false;
+function resetWorld() {
+  abortAll(); clearMovers(); clearPowder();
+  for (const o of movables) { const i = o.userData.init; i.parent.add(o); o.position.copy(i.pos); o.quaternion.copy(i.quat); o.scale.copy(i.scale); o.visible = i.visible; }
+  for (const c of CONTS) setFill(c, 0);
+  wrap.visible = false; wrap.scale.y = .001; filmRoll.visible = false; laser.visible = laserDot.visible = false; setGuide(0);
+  op.root.position.set(-.62, 0, -2.85); op.root.rotation.y = PI / 2; op.setPose('idle'); op.ang = [...POSES.idle]; op.walking = false;
+  sim.mul = 1; resetState();
+}
+async function jumpTo(i, autoplay = playing) {
+  i = Math.max(0, Math.min(STEPS.length - 1, i));
+  resetWorld(); ended = false; $('endCard').classList.remove('on');
+  const tok = sim.token;
+  sim.instant = true;
+  try { for (let k = 0; k < i; k++) await STEPS[k].run(); } catch (e) { if (e !== ABORT) console.error(e); }
+  sim.instant = false;
+  if (tok !== sim.token) return;
+  playing = autoplay; updatePlayIcon(); runStep(i);
+}
+async function runStep(i) {
+  const tok = sim.token, st = STEPS[i]; cur = i;
+  sim.mul = st.fast || 1;
+  camS.orbit = !!st.orbit; cam(...st.cam, i === 0 ? 2.5 : 1.8);
+  updateHud(); speak(st.t + '. ' + st.c); drawVrCap(i, st.t, st.c);
+  const t0 = performance.now();
+  try {
+    await st.run();
+    sim.mul = 1;
+    const hold = Math.max(1.6, st.c.length * .045 - (performance.now() - t0) / 1000);
+    await wait(hold);
+    for (let w = 0; speaking && soundOn && w < 14; w += .25) await wait(.25);   // never hang if the speech engine drops its end event
+  } catch (e) { if (e !== ABORT) console.error(e); return; }
+  if (tok !== sim.token) return;
+  if (i < STEPS.length - 1) { if (playing) runStep(i + 1); else waitingNext = true; }
+  else { ended = true; if (!renderer.xr.isPresenting) $('endCard').classList.add('on'); }
+}
+let waitingNext = false;
+function next() { waitingNext = false; if (cur < STEPS.length - 1) jumpTo(cur + 1); }
+function prev() { waitingNext = false; jumpTo(cur - 1); }
+
+/* ======================================================================
+   HUD wiring
+   ====================================================================== */
+const stepList = $('stepList');
+STEPS.forEach((s, i) => { const b = document.createElement('button'); b.innerHTML = `<span>${String(i + 1).padStart(2, '0')}</span>${s.t}`; b.onclick = () => { jumpTo(i); $('steps').classList.remove('open'); }; stepList.appendChild(b); });
+function updateHud() {
+  $('stepNo').textContent = `ADIM ${String(cur + 1).padStart(2, '0')} / ${STEPS.length}`;
+  $('stepTitle').textContent = STEPS[cur].t; $('capText').textContent = STEPS[cur].c;
+  $('barFill').style.width = ((cur + 1) / STEPS.length * 100) + '%';
+  [...stepList.children].forEach((b, i) => { b.className = i === cur ? 'cur' : i < cur ? 'done' : ''; });
+  stepList.children[cur]?.scrollIntoView({ block: 'nearest' });
+}
+function updatePlayIcon() { $('icPause').style.display = playing ? '' : 'none'; $('icPlay').style.display = playing ? 'none' : ''; }
+$('bPlay').onclick = () => {
+  if (ended) { jumpTo(0, true); return; }
+  playing = !playing; sim.paused = !playing; updatePlayIcon();
+  if (playing && waitingNext) next();
+  if (!playing) speechSynthesis?.pause?.(); else speechSynthesis?.resume?.();
+};
+$('bNext').onclick = next; $('bPrev').onclick = prev;
+$('bRestart').onclick = () => { playing = true; sim.paused = false; jumpTo(0, true); };
+const speeds = [1, 1.5, 2, .75]; let si = 0;
+$('bSpeed').onclick = () => { si = (si + 1) % speeds.length; sim.speed = speeds[si]; $('bSpeed').textContent = speeds[si] + '×'; };
+$('bCam').onclick = () => {
+  freeCam = !freeCam; controls.enabled = freeCam; $('bCam').textContent = freeCam ? 'Serbest' : 'Sinematik'; $('bCam').classList.toggle('on', freeCam);
+  if (freeCam) { controls.target.copy(camS.target); controls.update(); } else { camS.p0.copy(camera.position); camS.t0.copy(controls.target); camS.target.copy(controls.target); camS.k = 0; }
+};
+$('bTags').onclick = () => { tags.visible = !tags.visible; $('bTags').classList.toggle('on', tags.visible); };
+$('bSound').onclick = () => { soundOn = !soundOn; $('bSound').classList.toggle('on', soundOn); if (!soundOn) { speechSynthesis?.cancel(); speaking = false; } };
+$('stepsToggle').onclick = () => $('steps').classList.toggle('open');
+addEventListener('keydown', e => {
+  if (opMode) return;
+  if ($('film').classList.contains('on')) { if (e.key === 'Escape') closeFilm(); return; }
+  if (e.key === ' ') { e.preventDefault(); $('bPlay').click(); } else if (e.key === 'ArrowRight') next(); else if (e.key === 'ArrowLeft') prev();
+});
+$('againBtn').onclick = () => { $('endCard').classList.remove('on'); playing = true; sim.paused = false; jumpTo(0, true); };
+$('freeBtn').onclick = () => { $('endCard').classList.remove('on'); if (!freeCam) $('bCam').click(); };
+
+/* VR button */
+const vrBtn = VRButton.createButton(renderer);
+$('vrSlot').appendChild(vrBtn);
+const tr = { 'ENTER VR': "VR'da aç", 'EXIT VR': "VR'dan çık", 'VR NOT SUPPORTED': 'VR yok', 'VR NOT ALLOWED': 'VR izinsiz' };
+new MutationObserver(() => { const t = vrBtn.textContent; if (tr[t]) vrBtn.textContent = tr[t]; vrBtn.classList.toggle('na', /yok|izinsiz/.test(vrBtn.textContent)); }).observe(vrBtn, { childList: true, characterData: true, subtree: true });
+renderer.xr.addEventListener('sessionstart', () => {
+  if (opMode) return;
+  $('hud').style.display = 'none'; vrPanel.visible = true; ceiling.visible = true; freeCam = false; controls.enabled = false;
+  const st = STEPS[Math.max(0, cur)]; placeRig(...st.cam);
+});
+renderer.xr.addEventListener('sessionend', () => { if (opMode) return; $('hud').style.display = ''; vrPanel.visible = false; rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); camS.k = 1; });
+
+/* ======================================================================
+   Film (Higgsfield clips)
+   ====================================================================== */
+const CLIPS = [
+  ['assets/v0.mp4', 'Depodan GMP uyumlu tartım kabinine'],
+  ['assets/v1.mp4', 'Hammadde barkodla doğrulanır'],
+  ['assets/v3.mp4', 'Hassas tartım ve tolerans kontrolü'],
+  ['assets/v4.mp4', 'Her kaba izlenebilir barkod etiketi'],
+  ['assets/v2.mp4', "Batch QR etiketi, MIRA ERP'ye kayıt"],
+];
+let fi = 0; const fv = $('filmVideo');
+function playClip(i) {
+  fi = i; if (fi >= CLIPS.length) { closeFilm(); return; }
+  fv.src = CLIPS[fi][0]; fv.play().catch(() => {}); $('filmCap').textContent = CLIPS[fi][1];
+  $('filmDots').innerHTML = CLIPS.map((_, k) => `<i class="${k <= fi ? 'on' : ''}"></i>`).join('');
+}
+fv.onended = () => playClip(fi + 1); fv.onerror = () => playClip(fi + 1);
+let resumeAfterFilm = false;
+function openFilm() { resumeAfterFilm = playing && $('hud').classList.contains('on'); if (resumeAfterFilm) $('bPlay').click(); $('film').classList.add('on'); playClip(0); }
+function closeFilm() { fv.pause(); $('film').classList.remove('on'); if (resumeAfterFilm && !playing) $('bPlay').click(); }
+$('filmBtn').onclick = openFilm; $('bFilm').onclick = openFilm; $('endFilmBtn').onclick = () => { $('endCard').classList.remove('on'); openFilm(); }; $('filmClose').onclick = closeFilm;
+$('introVideo').onerror = e => e.target.remove();
+
+/* ======================================================================
+   OPERATÖR MODU — first person (Meta Quest controllers + desktop)
+   ====================================================================== */
+const isXR = () => renderer.xr.isPresenting;
+const V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), Q1 = new THREE.Quaternion();
+const raycaster = new THREE.Raycaster();
+const later = (sec, fn) => { wait(sec).then(fn).catch(() => {}); };
+
+// extra props for operator mode
+const rollStand = new THREE.Group(); rollStand.position.set(PAL_XZ[0] + 1.15, 0, PAL_XZ[1] + 1.05); scene.add(rollStand); rollStand.visible = false;
+box(.4, .03, .4, M.steel, 0, .7, 0, rollStand); for (const [dx, dz] of [[-.18, -.18], [.18, -.18], [-.18, .18], [.18, .18]]) box(.025, .7, .025, M.steel, dx, .35, dz, rollStand);
+
+// surfaces objects can be put down on
+const surfaces = [floorMesh, boothFloor, officeFloor, sehpa.children[0], bench.children[0], shelf.children[0], shelf.children[1], staging.children[0], jarTable.children[0], pcShelf, rollStand.children[0]];
+
+// object kinds
+const ALL_MATS = [sackWrong, sackA, sackC, jarB, jarD];
+for (const m of ALL_MATS) Object.assign(m.userData, { kind: 'mat', baseOff: m.userData.label.geometry.type === 'CylinderGeometry' ? 0 : .085, tip: m.userData.code + ' · ' + (m === sackWrong ? 'Hammadde X' : S0name(m)) });
+function S0name(m) { const it = ITEMS0.find(i => i.code === m.userData.code); return it ? it.name : ''; }
+CONTS.forEach(c => Object.assign(c.userData, { kind: 'cont', baseOff: 0, tip: 'Boş kap' }));
+Object.assign(scanner.userData, { kind: 'scanner', baseOff: .03, tip: 'Barkod okuyucu' });
+prodLabels.forEach(l => Object.assign(l.userData, { kind: 'label', tip: 'Barkod etiketi' }));
+Object.assign(qrLabel.userData, { kind: 'qr', tip: 'Batch QR etiketi' });
+Object.assign(filmRoll.userData, { kind: 'roll', baseOff: .16, tip: 'Streç film rulosu' });
+const GRABS = [scanner, ...ALL_MATS, ...CONTS, ...prodLabels, qrLabel, filmRoll];
+const HOLD = {   // [desktop pos, desktop rot, vr pos, vr rot]
+  scanner: [[0, 0, 0], [0, PI, 0], [0, -.01, .02], [-.5, PI, 0]],
+  mat:     [[.02, -.16, -.2], [0, 0, 0], [0, -.06, -.12], [0, PI / 2, 0]],
+  jar:     [[0, -.08, 0], [0, 0, 0], [0, -.1, -.03], [0, 0, 0]],
+  cont:    [[0, -.14, -.05], [0, 0, 0], [0, -.12, -.1], [0, 0, 0]],
+  label:   [[0, .06, .05], [0, 0, 0], [0, 0, -.06], [-1.1, 0, 0]],
+  qr:      [[0, .08, 0], [0, 0, 0], [0, 0, -.08], [-1.1, 0, 0]],
+  roll:    [[0, -.06, 0], [0, 0, PI / 2], [0, 0, -.06], [PI / 2, 0, 0]],
+};
+const holdKey = o => o.userData.kind === 'mat' && o.userData.baseOff === 0 ? 'jar' : o.userData.kind;
+const pourable = o => o && o.userData.kind === 'mat';
+
+// buttons + hotspots
+Object.assign(T1tare.userData, { btn: 'tare', n: 1, tip: 'DARA · Terazi 1' });
+Object.assign(T1btn.userData, { btn: 'ok', n: 1, tip: 'ONAY · Terazi 1' });
+Object.assign(T2tare.userData, { btn: 'tare', n: 2, tip: 'DARA · Terazi 2' });
+Object.assign(T2btn.userData, { btn: 'ok', n: 2, tip: 'ONAY · Terazi 2' });
+// keys stay small and flush; an invisible, larger proxy makes them easy to hit with the desk crosshair or a VR ray
+const keyProxy = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+for (const b of [T1tare, T1btn, T2tare, T2btn]) b.add(new THREE.Mesh(new THREE.SphereGeometry(b === T1tare || b === T1btn ? .032 : .02, 10, 8), keyProxy));
+screenMesh.userData.tip = 'Tartım ekranı';
+const BUTTONS = [T1tare, T1btn, T2tare, T2btn];
+const hotGroup = new THREE.Group(); hotGroup.visible = false; scene.add(hotGroup);
+const HOTS = [
+  ['Tartım ekranı', STAND.pc, [-.3, 1.5, -2.85]], ['Terazi 1', STAND.t1, [-2.65, .3, -3.2]], ['Sehpa', STAND.sehpa, [-3.0, .6, -1.95]],
+  ['Boş kaplar', STAND.shelf, [-.46, .6, -1.75]], ['Terazi 2', STAND.t2, [-1.5, 1, -3.6]], ['Barkod yazıcı', STAND.printer, [-.68, 1, -3.62]],
+  ['Batch paleti', STAND.pallet, [PAL_XZ[0], .3, PAL_XZ[1]]], ['Depo · çuvallar', [-5.8, -1.0], [-6.6, .3, -1.0]], ['Depo · kavanozlar', [-6.4, -.15], [-6.4, .8, .6]],
+];
+const hotMat = new THREE.MeshBasicMaterial({ color: 0x3aa0ff, transparent: true, opacity: .55, toneMapped: false, side: THREE.DoubleSide, depthWrite: false });
+const hotDiscMat = new THREE.MeshBasicMaterial({ color: 0x3aa0ff, transparent: true, opacity: .12, toneMapped: false, depthWrite: false });
+const hotspots = HOTS.map(([name, [x, z], look]) => {
+  const g = new THREE.Group(); g.position.set(x, .02, z); hotGroup.add(g);
+  const r = new THREE.Mesh(new THREE.RingGeometry(.26, .32, 40).rotateX(-PI / 2), hotMat); g.add(r);
+  const d = new THREE.Mesh(new THREE.CircleGeometry(.26, 32).rotateX(-PI / 2), hotDiscMat); g.add(d);
+  g.userData = { hot: true, look: new THREE.Vector3(...look), tip: 'Işınlan: ' + name };
+  return g;
+});
+
+// hint arrow
+const hint = new THREE.Group(); scene.add(hint); hint.visible = false;
+mesh(new THREE.ConeGeometry(.06, .15, 16).rotateX(PI), new THREE.MeshBasicMaterial({ color: 0xffb020, toneMapped: false }), 0, 0, 0, hint, false);
+let hintTarget = null;
+
+// hover tooltip sprite (VR) + label scan hit test lists
+const tipSprite = makeTag(' '); tipSprite.visible = false; scene.add(tipSprite);
+let tipText = '';
+function setTip3D(text, pos) {
+  if (!text) { tipSprite.visible = false; return; }
+  if (text !== tipText) {
+    tipText = text; const { c, tex } = canvasTex(512, 100);
+    c.fillStyle = 'rgba(9,18,31,0.88)'; RR(c, 4, 4, 504, 92, 20); c.fill(); c.strokeStyle = 'rgba(255,176,32,.7)'; c.lineWidth = 3; c.stroke();
+    T(c, text, 256, 62, 36, '#fff', 600, 'center'); tipSprite.material.map?.dispose(); tipSprite.material.map = tex; tipSprite.material.needsUpdate = true;
+  }
+  tipSprite.visible = true; tipSprite.position.copy(pos).add(V2.set(0, .12, 0)); tipSprite.scale.set(.42, .082, 1);
+}
+const scanLabels = () => [...ALL_MATS.map(m => m.userData.label), ...prodLabels.filter(l => l.visible), ...(qrLabel.visible ? [qrLabel] : [])];
+
+/* ---------- player / hands ---------- */
+const deskR = new THREE.Object3D(); deskR.position.set(.24, -.26, -.55); camera.add(deskR);
+const deskL = new THREE.Object3D(); deskL.position.set(-.26, -.24, -.5); camera.add(deskL);
+const desk = { id: 'desk', anchor: deskR, held: null, scanAnchor: deskL, scanner: false, trigger: false };
+const player = { yaw: 0, pitch: 0, keys: {}, locked: false, mouse: new THREE.Vector2(0, 0), drag: null };
+const cmf = new XRControllerModelFactory();
+const ctrls = [0, 1].map(i => {
+  const ray = renderer.xr.getController(i), grip = renderer.xr.getControllerGrip(i);
+  grip.add(cmf.createControllerModel(grip)); rig.add(ray); rig.add(grip);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, -1)]), new THREE.LineBasicMaterial({ color: 0x7cc4ff, transparent: true, opacity: .75 }));
+  line.scale.z = 2; ray.add(line);
+  const anchor = new THREE.Object3D(); anchor.position.set(0, -.02, -.05); grip.add(anchor);
+  const c = { id: 'c' + i, ray, grip, line, anchor, held: null, trigger: false, gamepad: null, handed: i ? 'left' : 'right', turnReady: true };
+  ray.addEventListener('connected', e => { c.handed = e.data.handedness; c.gamepad = e.data.gamepad; });
+  ray.addEventListener('disconnected', () => { c.gamepad = null; });
+  ray.addEventListener('selectstart', () => { c.trigger = true; onTrigger(c); });
+  ray.addEventListener('selectend', () => { c.trigger = false; });
+  ray.addEventListener('squeezestart', () => onGrip(c));
+  return c;
+});
+
+function handRay(h) {
+  if (h.id === 'desk') { raycaster.setFromCamera(player.locked ? new THREE.Vector2(0, 0) : player.mouse, camera); return raycaster.ray; }
+  if (h.held === scanner) { scanTip.getWorldPosition(V1); scanner.getWorldQuaternion(Q1); raycaster.set(V1, V2.set(0, 0, 1).applyQuaternion(Q1).normalize()); return raycaster.ray; }
+  h.ray.getWorldPosition(V1); h.ray.getWorldQuaternion(Q1); raycaster.set(V1, V2.set(0, 0, -1).applyQuaternion(Q1).normalize()); return raycaster.ray;
+}
+function hitList(h, list, far = 6) {
+  handRay(h); raycaster.far = far;
+  const hits = raycaster.intersectObjects(list.filter(o => o.visible !== false), true);
+  return hits.find(x => visibleChain(x.object)) || null;
+}
+function visibleChain(o) { while (o) { if (!o.visible) return false; o = o.parent; } return true; }
+const isDesc = (o, root) => { while (o) { if (o === root) return true; o = o.parent; } return false; };
+const topOf = (o, list) => list.find(r => isDesc(o, r));
+
+/* ---------- operator state machine ---------- */
+let O = null;
+function resetO() { O = { state: 'idle', cont: null, used: new Set(), locked: new Set(), stuck: new Set(), wrapping: false }; }
+resetO();
+const grabbable = o => o.visible && !O.locked.has(o) && !O.stuck.has(o) && !(o.userData.kind === 'label' && !o.visible);
+function heldBy(o) { if (desk.held === o) return desk; if (o === scanner && desk.scanner) return desk; return ctrls.find(c => c.held === o) || null; }
+function holdingScanner(h) { return h.id === 'desk' ? desk.scanner : h.held === scanner; }
+
+function attachHeld(obj, h) {
+  const k = holdKey(obj), cfg = HOLD[k], vr = h.id !== 'desk';
+  const anchor = h.id === 'desk' ? (obj === scanner ? desk.scanAnchor : desk.anchor) : h.anchor;
+  obj.userData.rest = { parent: obj.parent, pos: obj.position.clone(), quat: obj.quaternion.clone() };
+  anchor.add(obj); obj.position.set(...cfg[vr ? 2 : 0]); obj.rotation.set(...cfg[vr ? 3 : 1]); obj.scale.y = 1;
+  if (h.id === 'desk') { if (obj === scanner) desk.scanner = true; else desk.held = obj; } else h.held = obj;
+  sfx.click();
+}
+function detach(obj, h) { if (h.id === 'desk') { if (obj === scanner) desk.scanner = false; else desk.held = null; } else h.held = null; }
+function returnToRest(obj) { const r = obj.userData.rest; if (!r) return; r.parent.add(obj); obj.position.copy(r.pos); obj.quaternion.copy(r.quat); }
+
+function onGrip(h) {
+  if (!opMode) return;
+  const obj = h.id === 'desk' ? desk.held : h.held;
+  if (obj && h.id === 'desk') {
+    // aiming at another object while holding one: put the held one back and take the new one
+    const other = hitList(h, GRABS.filter(o => o !== obj && o !== scanner && grabbable(o)), 3.2);
+    const zone = hitList(h, [T1, T2, batchPallet, ...CONTS, ...surfaces], 3.5);
+    if (other && (!zone || other.distance <= zone.distance + .01)) {
+      detach(obj, h); putDownNear(obj); attachHeld(topOf(other.object, GRABS), h); refreshInstr(); return;
+    }
+  }
+  if (obj) { releaseObj(obj, h); return; }
+  const hit = hitList(h, GRABS.filter(grabbable), h.id === 'desk' ? 3.2 : 4);
+  if (hit) {
+    const o = topOf(hit.object, GRABS);
+    if (o === scanner && h.id === 'desk' && desk.scanner) return;
+    const other = heldBy(o); if (other) detach(o, other);
+    if (h.id === 'desk' && o !== scanner && desk.held) return;
+    attachHeld(o, h); refreshInstr();
+  }
+}
+function putDownNear(obj) {   // set the held object down on the floor/surface just in front of the player
+  const cp = camera.getWorldPosition(new THREE.Vector3()), d = camera.getWorldDirection(new THREE.Vector3()); d.y = 0; d.normalize();
+  const side = new THREE.Vector3(d.z, 0, -d.x);
+  raycaster.set(cp.clone().addScaledVector(d, .3).addScaledVector(side, -.45).setY(1.3), new THREE.Vector3(0, -1, 0)); raycaster.far = 3;
+  const h2 = raycaster.intersectObjects([boothFloor, floorMesh, officeFloor], false)[0];
+  if (!h2 || (obj.userData.kind === 'cont' && O.used.has(obj))) { returnToRest(obj); return; }
+  scene.attach(obj); obj.position.set(h2.point.x, h2.point.y + (obj.userData.baseOff || 0), h2.point.z); obj.rotation.set(0, player.yaw, 0);
+  if (obj === scanner) obj.rotation.set(-PI / 2.2, player.yaw, 0);
+}
+function releaseObj(obj, h) {
+  let hit = null, wp = null;
+  if (h.id === 'desk') hit = hitList(h, [T1, T2, batchPallet, ...CONTS, ...surfaces], 3.5);
+  else wp = obj.getWorldPosition(new THREE.Vector3());
+  const drop = resolveDrop(obj, hit, wp);
+  detach(obj, h);
+  if (!drop) { returnToRest(obj); toast('Buraya bırakılamaz — eski yerine döndü'); refreshInstr(); return; }
+  drop.parent.attach(obj);
+  obj.position.set(...drop.pos); obj.rotation.set(...(drop.rot || [0, 0, 0]));
+  if (obj === scanner && drop.parent === scene) obj.rotation.set(-PI / 2.2, drop.rot ? drop.rot[1] : 0, 0);
+  sfx.click(); drop.cb?.(); refreshInstr();
+}
+function resolveDrop(obj, hit, wp) {
+  const k = obj.userData.kind;
+  const near = (o, r) => {
+    const p = o.getWorldPosition(V1);
+    if (wp) return Math.hypot(p.x - wp.x, p.z - wp.z) < r && wp.y > p.y - .35 && wp.y < p.y + 1.2;
+    return !!(hit && isDesc(hit.object, o));
+  };
+  const yaw = isXR() ? 0 : player.yaw;
+  if (k === 'cont') {
+    if (near(T1, .6)) return { parent: T1top, pos: [0, 0, 0], cb: () => placedOnScale(obj, 1) };
+    if (near(T2, .32)) return { parent: T2top, pos: [0, 0, 0], cb: () => placedOnScale(obj, 2) };
+    if (near(batchPallet, .9)) { if (O.state === 'pallet' && obj === O.cont) return { parent: batchPallet, pos: SLOTS[S.sel], cb: palletPlaced }; toast(O.used.has(obj) ? 'Önce etiketi okutun' : 'Palete yalnızca tartılmış ve etiketlenmiş kaplar konur'); return null; }
+  }
+  if (k === 'label') {
+    const idx = prodLabels.indexOf(obj);
+    if (O.cont && idx === S.sel && (near(O.cont, .45) || (hit && isDesc(hit.object, O.cont.parent)))) return { parent: O.cont, pos: O.cont.userData.labelPos.toArray(), cb: labelStuck };
+    return null;
+  }
+  if (k === 'qr') { if (O.state === 'qr' && (near(batchPallet, 1.0) || (hit && isDesc(hit.object, batchPallet)))) return { parent: batchPallet, pos: [0, .38, .525], rot: [0, 0, 0], cb: qrStuck }; return null; }
+  // generic: put down on a surface
+  let sp = null;
+  if (hit) { if (hit.face && hit.face.normal && topOf(hit.object, surfaces) && hit.point.y < 1.6) sp = hit.point; }
+  else if (wp) { raycaster.set(wp, V2.set(0, -1, 0)); raycaster.far = 2.5; const h2 = raycaster.intersectObjects(surfaces, false)[0]; if (h2) sp = h2.point; }
+  if (!sp) return null;
+  if (k === 'cont' && O.used.has(obj)) { toast('Bu kap tartımda — terazide kalmalı'); return null; }
+  return { parent: scene, pos: [sp.x, sp.y + (obj.userData.baseOff || 0), sp.z], rot: [0, yaw, 0] };
+}
+
+function placedOnScale(cont, n) {
+  const it = S.items[S.sel];
+  if (O.state !== 'container' || !it) { toast('Önce ürünü seçip hammaddeyi okutun'); return; }
+  if (O.used.has(cont)) return;
+  if (n !== it.scale) {
+    S.mode = 'wrongScale'; S['b' + n] = 'redflash'; scrDirty = true; sfx.err(); toast('Yanlış terazi! Bu ürün Terazi ' + it.scale + "'de tartılmalı.");
+    later(2.4, () => { if (S.mode === 'wrongScale') { S.mode = 'scaleGuide'; S['b' + n] = 'off'; S['b' + it.scale] = 'green'; scrDirty = true; } });
+    return;
+  }
+  O.cont = cont; O.used.add(cont); O.locked.add(cont); setFill(cont, 0);
+  S.mode = 'weigh'; S.tare = false; setW(n, n === 1 ? 1.240 : 38.6); pulse('t' + n, -1);
+  O.state = 'tare'; refreshInstr();
+}
+function pressButton(b) {
+  const { btn, n } = b.userData, it = S.items[S.sel];
+  tween(.08, k => b.position.y -= .0003 * (k < .5 ? 1 : -1)).catch(() => {}); sfx.click();
+  if (!it || n !== it.scale) { toast('Bu terazi şu an kullanılmıyor'); return; }
+  if (btn === 'tare') {
+    if (O.state !== 'tare') { toast(O.state === 'container' ? 'Önce boş kabı teraziye koyun' : 'Dara zaten alındı'); return; }
+    S.tare = true; setW(n, 0); pulse('t' + n, -1); O.state = 'pour'; refreshInstr(); return;
+  }
+  if (O.state !== 'pour' && O.state !== 'tolError') { toast('Onay için önce tartım yapın'); return; }
+  if (S.weight <= 0) { toast('Kap boş — önce ürünü aktarın'); return; }
+  const ok = Math.abs(S.weight - it.target) <= it.tol;
+  if (ok) {
+    it.actual = S.weight; S.mode = 'ok'; S['b' + n] = 'green'; sfx.ok(); scrDirty = true; O.state = 'label';
+    const L = prodLabels[S.sel]; drawProdLabel(S.sel); printer.add(L); L.position.set(0, .07, .12); L.rotation.set(-PI / 2 + .3, 0, 0); L.visible = true;
+    pulse('printer', 1); sfx.print(); tween(.9, k => L.position.z = .12 + k * .09, lin).catch(() => {});
+    later(1.2, () => { if (S.mode === 'ok') { S.mode = 'labelWait'; scrDirty = true; } });
+  } else { S.mode = 'tolError'; S['b' + n] = 'redflash'; sfx.err(); scrDirty = true; O.state = 'tolError'; }
+  refreshInstr();
+}
+function scoop() {
+  const it = S.items[S.sel]; if (O.state !== 'tolError' || S.weight <= it.target + it.tol) return false;
+  const v = Math.max(it.target - it.tol * .4, S.weight - it.tol * (1 + Math.random() * 1.6));
+  setW(it.scale, v); setFill(O.cont, v / it.target); pulse('t' + it.scale, -1); sfx.click();
+  if (Math.abs(v - it.target) <= it.tol) { S.mode = 'weigh'; S['b' + it.scale] = 'green'; scrDirty = true; }
+  refreshInstr(); return true;
+}
+function labelStuck() { O.stuck.add(prodLabels[S.sel]); O.state = 'verify'; S.mode = 'labelWait'; scrDirty = true; refreshInstr(); }
+function palletPlaced() {
+  const it = S.items[S.sel]; it.status = 'done'; O.locked.add(O.cont); O.cont = null;
+  S.b1 = S.b2 = 'off'; setGuide(0); S.sel = -1;
+  if (S.items.every(x => x.status === 'done')) startWrapStage(); else { S.mode = 'recipe'; O.state = 'select'; }
+  scrDirty = true; refreshInstr();
+}
+function startWrapStage() { S.mode = 'batch'; O.state = 'wrap'; filmRoll.visible = true; scrDirty = true; }
+function qrStuck() { O.stuck.add(qrLabel); O.state = 'qrscan'; refreshInstr(); }
+function onScanned(lbl) {
+  const mat = ALL_MATS.find(m => m.userData.label === lbl), it = S.items[S.sel];
+  if (mat) {
+    if (O.state !== 'scan') { toast(O.state === 'select' || O.state === 'lot' ? 'Önce ekrandan ürün seçin' : mat.userData.code + ' okundu'); return; }
+    if (mat.userData.code === it.code) {
+      S.mode = 'scaleGuide'; S.scale = it.scale; S['b' + it.scale] = 'green'; setGuide(it.scale); sfx.ok(); O.state = 'container'; O.mat = mat;
+    } else {
+      S.scanned = mat.userData.code; S.mode = 'scanError'; S.b1 = S.b2 = 'redflash'; sfx.err();
+      later(2.6, () => { if (S.mode === 'scanError') { S.mode = 'scan'; S.b1 = S.b2 = 'off'; scrDirty = true; } });
+    }
+    scrDirty = true; refreshInstr(); return;
+  }
+  const pi = prodLabels.indexOf(lbl);
+  if (pi >= 0) {
+    if (O.state !== 'verify' || pi !== S.sel) { toast('Etiket okundu'); return; }
+    O.state = 'saving'; S.mode = 'verify'; scrDirty = true; sfx.ok(); refreshInstr();
+    erpSend('Kayıt · ' + it.code + ' · ' + fmt(it.actual, it.unit) + ' ' + it.unit, it.code + '  ' + fmt(it.actual, it.unit) + ' ' + it.unit + '  ✓').then(() => {
+      O.locked.delete(O.cont); O.state = 'pallet'; refreshInstr();
+    }).catch(() => {});
+    return;
+  }
+  if (lbl === qrLabel) {
+    if (O.state !== 'qrscan') { toast('Önce QR etiketini batch’e yapıştırın'); return; }
+    O.state = 'saving'; sfx.ok(); refreshInstr();
+    erpSend('Batch · LOT 26-1042 · ' + totalKg() + ' kg', 'Batch kapatıldı · ' + totalKg() + ' kg ✓').then(() => { S.mode = 'done'; dirtyAll(); O.state = 'done'; refreshInstr(); sfx.ok(); }).catch(() => {});
+  }
+}
+function screenPress(uv) {
+  const x = uv.x * 1280, y = (1 - uv.y) * 800, r = scrHits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
+  if (!r) return; sfx.click();
+  if (r.id.startsWith('lot') && O.state === 'lot') { S.lotSel = 0; S.mode = 'recipe'; O.state = 'select'; }
+  else if (r.id.startsWith('item') && O.state === 'select') {
+    const i = +r.id.slice(4); if (S.items[i].status === 'done') { toast('Bu kalem tamamlandı'); return; }
+    S.sel = i; S.items[i].status = 'active'; S.mode = 'scan'; O.state = 'scan'; sfx.warn();
+  } else if (r.id === 'auto' && O.state === 'select') autoRest();
+  scrDirty = true; refreshInstr();
+}
+function autoRest() {
+  S.items.forEach((it, i) => {
+    if (it.status === 'done') return;
+    const type = it.scale === 1 ? [cont1, cont3] : [cup2, cup4];
+    const cont = [CONTS[i], ...type].find(c => !O.used.has(c) && type.includes(c)); if (!cont) return;
+    it.actual = it.target + it.tol * .25; it.status = 'done'; O.used.add(cont); O.locked.add(cont);
+    batchPallet.add(cont); cont.position.set(...SLOTS[i]); cont.rotation.set(0, 0, 0); setFill(cont, 1);
+    const L = prodLabels[i]; drawProdLabel(i); L.visible = true; cont.add(L); L.position.copy(cont.userData.labelPos); L.rotation.set(0, 0, 0); O.stuck.add(L);
+    erpLog(it.code + '  ' + fmt(it.actual, it.unit) + ' ' + it.unit + '  ✓');
+  });
+  startWrapStage();
+}
+function tryWrap(h) {
+  if (O.state !== 'wrap') return false;
+  const p = (h.id === 'desk' ? camera : h.grip).getWorldPosition(V1);
+  if (Math.hypot(p.x - PAL_XZ[0], p.z - PAL_XZ[1]) > 2.2) { toast('Paletin yanına gidin'); return true; }
+  O.state = 'wrapping'; wrap.visible = true; refreshInstr();
+  tween(4.5, k => { wrap.scale.y = Math.max(.001, .44 * k); wrap.position.y = .14 + .22 * k; S.wrapPct = k; scrDirty = true; }, lin).then(() => {
+    const holder = heldBy(filmRoll); if (holder) detach(filmRoll, holder); filmRoll.visible = false; scene.add(filmRoll);
+    S.mode = 'qr'; O.state = 'qr'; drawQRLabel(); printer.add(qrLabel); qrLabel.position.set(0, .07, .12); qrLabel.rotation.set(-PI / 2 + .3, 0, 0); qrLabel.visible = true;
+    pulse('printer', 1); sfx.print(); tween(1, k => qrLabel.position.z = .12 + k * .12, lin).catch(() => {}); scrDirty = true; refreshInstr();
+  }).catch(() => {});
+  return true;
+}
+
+/* trigger / use */
+function onTrigger(h) {
+  if (!opMode) { if (isXR()) { if (ended) jumpTo(0, true); else next(); } return; }
+  if (holdingScanner(h)) {
+    const labeled = CONTS.filter(c => prodLabels.some(l => l.parent === c)), extra = qrLabel.parent === batchPallet ? [batchPallet] : [];
+    const hit = hitList(h, [...scanLabels(), ...ALL_MATS, ...labeled, ...extra], h.id === 'desk' ? 3 : 1.8);
+    fireLaser(h, hit);
+    if (hit) {
+      const c = topOf(hit.object, labeled), m = topOf(hit.object, ALL_MATS);
+      const lbl = topOf(hit.object, scanLabels()) || (c ? prodLabels.find(l => l.parent === c) : m ? m.userData.label : qrLabel);
+      sfx.click(); pulse('scan', -1); onScanned(lbl); return;
+    }
+    if (h.id !== 'desk') return;
+  }
+  const held = h.id === 'desk' ? desk.held : h.held;
+  if (held === filmRoll && tryWrap(h)) return;
+  const hit = hitList(h, [screenMesh, ...BUTTONS, ...hotspots, ...CONTS], 8);
+  if (!hit) return;
+  if (pourable(held) && O.cont && isDesc(hit.object, O.cont) && !scoop()) return; // pouring is handled per frame while the trigger is held
+  if (hit.object === screenMesh) { if (hit.distance < 4) screenPress(hit.uv); else toast('Ekrana yaklaşın'); return; }
+  const b = BUTTONS.find(x => x === hit.object || x === hit.object.parent); if (b) { if (hit.distance < 3) pressButton(b); else toast('Düğmeye yaklaşın'); return; }
+  const hs = topOf(hit.object, hotspots); if (hs) { teleport(hs); return; }
+  const c = topOf(hit.object, CONTS); if (c && c === O.cont && hit.distance < 3) { if (!scoop()) toast(O.state === 'tolError' ? 'Eksik — biraz daha ekleyin' : 'Kap'); }
+}
+let laserT = 0, laserH = null, laserEnd = new THREE.Vector3();
+function fireLaser(h, hit) {
+  laserH = h; laserT = .3;
+  const ray = handRay(h);
+  if (hit) laserEnd.copy(hit.point); else laserEnd.copy(ray.origin).addScaledVector(ray.direction, 1.5);
+}
+const fade = document.getElementById('fade');
+function teleport(hs, now = false) {
+  const p = hs.position, look = hs.userData.look;
+  const go = () => {
+    if (isXR()) {
+      camera.getWorldPosition(V1);
+      rig.position.x += p.x - V1.x; rig.position.z += p.z - V1.z;
+      const camDir = camera.getWorldDirection(V2), curYaw = Math.atan2(-camDir.x, -camDir.z), want = Math.atan2(-(look.x - p.x), -(look.z - p.z));
+      rotateRigAround(want - curYaw, p);
+    } else {
+      rig.position.set(p.x, 0, p.z); player.yaw = Math.atan2(-(look.x - p.x), -(look.z - p.z));
+      const dy = look.y - 1.62, dist = Math.hypot(look.x - p.x, look.z - p.z); player.pitch = Math.max(-1.2, Math.atan2(dy, dist));
+    }
+  };
+  if (isXR() || now || document.hidden) { go(); return; }
+  fade.style.opacity = 1; setTimeout(() => { go(); fade.style.opacity = 0; }, 160);
+}
+function rotateRigAround(a, pivot) {
+  const off = V1.copy(rig.position).sub(V2.set(pivot.x, rig.position.y, pivot.z)); off.applyAxisAngle(new THREE.Vector3(0, 1, 0), a);
+  rig.position.set(pivot.x + off.x, rig.position.y, pivot.z + off.z); rig.rotation.y += a;
+}
+
+/* ---------- per-frame operator update ---------- */
+let pouringNow = false, deskPourPose = false;
+function pourRate(it) {
+  const rem = it.target - S.weight, fast = it.unit === 'kg' ? 7 : 170, slow = it.unit === 'kg' ? .11 : 3.2;
+  return rem > it.target * .1 ? fast : rem > it.tol * 4 ? fast * .12 : slow;
+}
+function updateOp(dt, realDt) {
+  const it = S.items[S.sel];
+  // locomotion
+  if (isXR()) {
+    for (const c of ctrls) {
+      const gp = c.gamepad; if (!gp || !gp.axes) continue;
+      const ax = gp.axes.length >= 4 ? gp.axes[2] : gp.axes[0], ay = gp.axes.length >= 4 ? gp.axes[3] : gp.axes[1];
+      if (c.handed === 'left' && (Math.abs(ax) > .15 || Math.abs(ay) > .15)) {
+        const d = camera.getWorldDirection(V2); d.y = 0; d.normalize(); const rgt = V1.set(-d.z, 0, d.x);
+        rig.position.addScaledVector(d, -ay * 1.6 * realDt).addScaledVector(rgt, ax * 1.6 * realDt);
+      }
+      if (c.handed === 'right') {
+        if (Math.abs(ax) > .7 && c.turnReady) { c.turnReady = false; camera.getWorldPosition(V1); rotateRigAround(ax > 0 ? -PI / 6 : PI / 6, V1.clone()); }
+        if (Math.abs(ax) < .3) c.turnReady = true;
+      }
+    }
+  } else {
+    const k = player.keys, f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0), s = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
+    if (f || s) { const sp = 1.8 * realDt, sy = Math.sin(player.yaw), cy = Math.cos(player.yaw); rig.position.x += (-sy * f + cy * s) * sp; rig.position.z += (-cy * f - sy * s) * sp; }
+    rig.position.x = Math.max(-13.5, Math.min(9.5, rig.position.x)); rig.position.z = Math.max(-5.6, Math.min(5.5, rig.position.z));
+    rig.rotation.set(0, player.yaw, 0); camera.position.set(0, 1.62, 0); camera.rotation.set(player.pitch, 0, 0);
+  }
+  // pouring
+  pouringNow = false;
+  const canPour = it && O.cont && (O.state === 'pour' || (O.state === 'tolError' && S.weight < it.target));
+  const contTop = O.cont ? O.cont.getWorldPosition(new THREE.Vector3()).add(V2.set(0, O.cont.userData.h, 0)) : null;
+  let src = null;
+  if (canPour) {
+    if (isXR()) {
+      for (const c of ctrls) {
+        if (!pourable(c.held)) continue;
+        const m = c.held.localToWorld(c.held.userData.mouth.clone()), up = V1.set(0, 1, 0).applyQuaternion(c.held.getWorldQuaternion(Q1));
+        const tilted = c.held.userData.baseOff === 0 ? up.y < .25 : V2.set(0, 0, 1).applyQuaternion(Q1).y < -.45;
+        if ((c.trigger || tilted) && Math.hypot(m.x - contTop.x, m.z - contTop.z) < .38 && m.y > contTop.y - .05 && m.y < contTop.y + 1.0) { src = c.held; break; }
+      }
+    } else if (pourable(desk.held) && desk.trigger) {
+      const hit = hitList(desk, [O.cont, it.scale === 1 ? T1 : T2], 3.5);
+      if (hit) src = desk.held;
+    }
+  }
+  if (src) {
+    pouringNow = true;
+    if (!isXR() && !deskPourPose) { // move the held object over the container, tilted
+      deskPourPose = true; const yaw = player.yaw + PI, tilt = src.userData.baseOff === 0 ? 1.9 : .95;
+      scene.attach(src); src.position.copy(contTop).add(V1.set(Math.sin(player.yaw) * .18, src.userData.baseOff === 0 ? .2 : .32, Math.cos(player.yaw) * .18)); src.rotation.set(tilt, yaw, 0, 'YXZ');
+    }
+    if (S.mode === 'tolError') { S.mode = 'weigh'; S['b' + it.scale] = 'green'; }
+    const v = S.weight + pourRate(it) * realDt * (1 + (Math.random() - .5) * .3);
+    setW(it.scale, v); setFill(O.cont, v / it.target);
+    if (sim.time - lastPulse > .45) { lastPulse = sim.time; pulse('t' + it.scale, -1); }
+    pour.src = src; pour.cont = O.cont; pour.mouth = null; pour.on = true;
+  } else {
+    pour.on = false;
+    if (deskPourPose) { deskPourPose = false; const o = desk.held; if (o) { desk.anchor.add(o); const cfg = HOLD[holdKey(o)]; o.position.set(...cfg[0]); o.rotation.set(...cfg[1]); } }
+  }
+  // laser flash
+  if (laserT > 0) {
+    laserT -= realDt; laser.visible = laserDot.visible = laserT > 0;
+    const a = laserH && laserH.id !== 'desk' ? scanTip.getWorldPosition(V1) : (desk.scanner ? scanTip.getWorldPosition(V1) : camera.getWorldPosition(V1));
+    laser.geometry.setFromPoints([a.clone(), laserEnd]); laserDot.position.copy(laserEnd);
+  }
+  // hover: rays, tooltips
+  let tipTxt = '', tipPos = null;
+  const hoverLists = [screenMesh, ...BUTTONS, ...hotspots, ...GRABS.filter(grabbable), ...scanLabels()];
+  if (isXR()) {
+    for (const c of ctrls) {
+      const hit = hitList(c, hoverLists, 6);
+      c.line.scale.z = hit ? hit.distance : 2;
+      const sc = holdingScanner(c); c.line.material.color.setHex(sc ? 0xff3030 : 0x7cc4ff); c.line.visible = !c.held || sc;
+      if (hit && !tipTxt) { const o = topOf(hit.object, hoverLists) || hit.object; tipTxt = tipFor(o, hit); tipPos = hit.point; }
+    }
+    setTip3D(tipTxt, tipPos || V1);
+  } else {
+    const hit = hitList(desk, hoverLists, 6);
+    if (hit) { const o = topOf(hit.object, hoverLists) || hit.object; tipTxt = tipFor(o, hit); }
+    const tb = document.getElementById('tipBox'); tb.textContent = tipTxt; tb.style.opacity = tipTxt ? 1 : 0;
+    if (!player.locked) { tb.style.left = ((player.mouse.x + 1) / 2 * innerWidth) + 'px'; tb.style.top = ((1 - player.mouse.y) / 2 * innerHeight + 26) + 'px'; }
+    else { tb.style.left = '50%'; tb.style.top = 'calc(50% + 22px)'; }
+  }
+  // hint arrow
+  const ht = currentHint();
+  if (ht) { hint.visible = true; ht.getWorldPosition(V1); const bb = ht.userData.hintY ?? .45; hint.position.set(V1.x, V1.y + bb + Math.sin(performance.now() * .005) * .04, V1.z); }
+  else hint.visible = false;
+  // VR instruction panel follows lazily
+  if (isXR()) {
+    const cp = camera.getWorldPosition(V1), d = camera.getWorldDirection(V2); d.y = 0; d.normalize();
+    const target = cp.clone().addScaledVector(d, 1.25); target.y = cp.y - .45;
+    instrPanel.position.lerp(target, Math.min(1, realDt * 2.2)); instrPanel.lookAt(cp.x, cp.y - .1, cp.z);
+  }
+}
+function tipFor(o, hit) {
+  if (o === screenMesh) { const x = hit.uv.x * 1280, y = (1 - hit.uv.y) * 800; const r = scrHits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h); return r ? (r.id.startsWith('lot') ? 'Lot seç' : r.id === 'auto' ? 'Otomatik tamamla' : S.items[+r.id.slice(4)].name + ' seç') : 'Tartım ekranı'; }
+  if (o.userData.label && ALL_MATS.includes(o)) return o.userData.tip;
+  const m = ALL_MATS.find(x => x.userData.label === o); if (m) return m.userData.tip;
+  if (CONTS.includes(o) && O.used.has(o)) return o === O.cont && O.state === 'tolError' ? 'Fazlayı al' : 'Tartım kabı';
+  return o.userData.tip || '';
+}
+function currentHint() {
+  const it = S.items[S.sel], anyHeld = o => !!heldBy(o);
+  switch (O.state) {
+    case 'lot': case 'select': return screenMesh;
+    case 'scan': if (!desk.scanner && !ctrls.some(c => c.held === scanner)) return scanner; return it.scale === 1 ? staging : jarTable;
+    case 'container': { const type = it.scale === 1 ? [cont1, cont3] : [cup2, cup4]; const c = type.find(x => !O.used.has(x)); return c && !anyHeld(c) ? c : (it.scale === 1 ? T1top : T2top); }
+    case 'tare': return it.scale === 1 ? T1tare : T2tare;
+    case 'pour': case 'tolError': { const m = MATS[S.sel]; if (!anyHeld(m) && O.state === 'pour' && S.weight < it.target * .5) return m; return it.scale === 1 ? T1btn : T2btn; }
+    case 'label': case 'verify': return prodLabels[S.sel].parent === printer || anyHeld(prodLabels[S.sel]) ? (anyHeld(prodLabels[S.sel]) ? O.cont : prodLabels[S.sel]) : O.cont;
+    case 'pallet': return anyHeld(O.cont) ? batchPallet : O.cont;
+    case 'wrap': return anyHeld(filmRoll) ? batchPallet : filmRoll;
+    case 'qr': return anyHeld(qrLabel) ? batchPallet : qrLabel;
+    case 'qrscan': return qrLabel;
+  }
+  return null;
+}
+for (const o of [T1tare, T1btn]) o.userData.hintY = .18;
+for (const o of [T2tare, T2btn]) o.userData.hintY = .14;
+screenMesh.userData.hintY = .34; staging.userData.hintY = 1.1; jarTable.userData.hintY = 1.2; batchPallet.userData.hintY = 1.0; T1top.userData.hintY = .9; T2top.userData.hintY = .35;
+
+/* ---------- instructions (HUD + VR panel) ---------- */
+const instrCv = canvasTex(1024, 420);
+const instrPanel = new THREE.Mesh(new THREE.PlaneGeometry(.9, .37), new THREE.MeshBasicMaterial({ map: instrCv.tex, transparent: true, toneMapped: false, depthTest: false }));
+instrPanel.renderOrder = 30; instrPanel.visible = false; scene.add(instrPanel);
+const VR = () => isXR();
+const say = (desktop, vr) => VR() ? vr : desktop;
+const TASKS = [['select', 'Ürün seç'], ['scan', 'Hammaddeyi okut'], ['container', 'Kabı doğru teraziye koy'], ['tare', 'Dara al'], ['pour', 'Tart ve onayla'], ['label', 'Etiketi yapıştır'], ['verify', 'Etiketi okut'], ['pallet', 'Palete koy']];
+const STATE_IDX = { lot: -1, select: 0, scan: 1, container: 2, tare: 3, pour: 4, tolError: 4, label: 5, verify: 6, saving: 6, pallet: 7 };
+function instrText() {
+  const it = S.items[S.sel], n = it ? it.scale : 1;
+  const tgt = it ? fmt(it.target, it.unit) + ' ± ' + fmt(it.tol, it.unit) + ' ' + it.unit : '';
+  const scannerHeld = desk.scanner || ctrls.some(c => c.held === scanner);
+  switch (O.state) {
+    case 'idle': return ['İş emri bekleniyor', "MIRA ERP'den lot ve reçete bilgisi geliyor."];
+    case 'lot': return ['Lot seçin', say('Ekrandaki LOT 26-1042 kartına bakın ve sol tıklayın.', 'Kumandayı ekrandaki LOT 26-1042 kartına doğrultup tetiğe basın.')];
+    case 'select': return ['Ürün seçin', say('Ekranın solundaki reçeteden sıradaki kalemi sol tıkla seçin.', 'Ekranın solundaki reçeteden sıradaki kalemi tetikle seçin.')];
+    case 'scan': return scannerHeld
+      ? ['Hammaddeyi okutun', 'Depodan ' + it.code + ' kodlu ' + (n === 1 ? 'çuvalı' : 'kavanozu') + ' bulun ve etiketini okutun. ' + say('Etikete bakıp sol tıklayın.', 'Okuyucuyu etikete doğrultup tetiğe basın.') + ' Zemindeki mavi halkalarla ışınlanabilirsiniz.']
+      : ['Barkod okuyucuyu alın', say('Ekranın altındaki okuyucuya bakıp sağ tık veya E.', 'Ekranın altındaki okuyucuya doğrultup yan kavrama (grip) tuşuna basın.')];
+    case 'container': return ['Boş kabı Terazi ' + n + "'" + (n === 1 ? 'e' : 'ye') + ' koyun', (n === 1 ? 'Raftaki büyük kaplardan birini' : 'Tezgâhtaki küçük kaplardan birini') + ' alın ve Terazi ' + n + ' üzerine bırakın. ' + say('Al/bırak: sağ tık veya E (bırakırken teraziye bakın).', 'Al/bırak: grip tuşu.')];
+    case 'tare': return ['Dara alın', 'Terazi ' + n + ' üzerindeki sarı DARA düğmesine basın.'];
+    case 'pour': return ['Ürünü kaba aktarın', it.code + ' ürününü alın ve kaba dökün. ' + say('Ürünü tutarken kaba bakıp sol tuşu basılı tutun.', 'Ürünü kabın üstünde tutup tetiğe basılı tutun ya da eğin.') + ' Hedef ' + tgt + '. Hedefe yaklaşınca akış yavaşlar. Sonra yeşil ONAY düğmesine basın.'];
+    case 'tolError': return S.weight > it.target
+      ? ['Tolerans dışı: fazla', say('Fazlayı almak için kaba bakıp sol tıklayın, sonra ONAY.', 'Fazlayı almak için kaba doğrultup tetiğe basın, sonra ONAY.') + ' Hedef ' + tgt + '.']
+      : ['Tolerans dışı: eksik', 'Biraz daha ürün ekleyin, sonra ONAY düğmesine basın. Hedef ' + tgt + '.'];
+    case 'label': return ['Etiketi kaba yapıştırın', 'Yazıcıdan çıkan etiketi alın ve kabın üzerine bırakın. ' + say('Bırakırken kaba bakın.', 'Etiketi kabın yanına getirip grip tuşunu bırakın.')];
+    case 'verify': return ['Etiketi okutun', 'Kabın üzerindeki etiketi barkod okuyucuyla okutun.'];
+    case 'saving': return ["MIRA ERP'ye kaydediliyor", 'Kayıt tamamlanınca devam edin.'];
+    case 'pallet': return ['Kabı batch paletine koyun', 'Kabı alın ve kabin önündeki beyaz palete bırakın.'];
+    case 'wrap': return ["Batch'i streçleyin", say('Paletin yanındaki streç rulosunu alın (sağ tık), palete bakıp sol tıklayın.', 'Streç rulosunu kavrayın, paletin yanında tetiğe basın.')];
+    case 'wrapping': return ['Streçleniyor…', 'Palet streç filmle sarılıyor.'];
+    case 'qr': return ['QR etiketini yapıştırın', 'Yazıcıdan QR etiketini alın ve batch paletinin üzerine bırakın.'];
+    case 'qrscan': return ["QR'ı okutun", "Batch'teki QR kodu okutun; iş emri MIRA ERP'de kapanacak."];
+    case 'done': return ['İş emri tamamlandı', "Batch MIRA ERP'ye kaydedildi. Toplam " + totalKg() + ' kg, 4 kalem. Tebrikler.'];
+  }
+  return ['', ''];
+}
+let lastToast = '';
+function toast(t) {
+  const el = document.getElementById('toast'); el.textContent = t; el.style.opacity = 1; clearTimeout(toast.h); toast.h = setTimeout(() => el.style.opacity = 0, 2200);
+  lastToast = t; toast.until = performance.now() + 2200; drawInstrPanel();
+}
+function refreshInstr() {
+  if (!opMode) return;
+  const [t, d] = instrText(), done = S.items.filter(x => x.status === 'done').length;
+  const head = O.state === 'lot' || O.state === 'idle' ? 'İŞ EMRİ' : ['wrap', 'wrapping', 'qr', 'qrscan', 'done'].includes(O.state) ? 'BATCH' : 'KALEM ' + Math.min(4, done + 1) + ' / 4';
+  document.getElementById('instrN').textContent = head; document.getElementById('instrT').textContent = t; document.getElementById('instrD').textContent = d;
+  const idx = STATE_IDX[O.state] ?? 99;
+  const rows = [['lot', 'Lot seç', O.state === 'lot' ? 'cur' : O.state === 'idle' ? '' : 'done']].concat(
+    S.items.map((it, i) => [it.code, it.name + ' · ' + (it.unit === 'kg' ? 'Terazi 1' : 'Terazi 2'), it.status === 'done' ? 'done' : i === S.sel ? 'cur' : '']));
+  let html = rows.map(([_, l, c]) => `<div class="tk ${c}"><i></i>${l}</div>`).join('');
+  if (S.sel >= 0) html += '<div class="sub">' + TASKS.map(([k, l], i) => `<div class="tk ${i < idx ? 'done' : i === idx ? 'cur' : ''}"><i></i>${l}</div>`).join('') + '</div>';
+  const fin = [['wrap', 'Batch’i streçle'], ['qr', 'QR etiketini yapıştır'], ['qrscan', 'QR’ı okut, iş emrini kapat']];
+  const fo = ['wrap', 'wrapping', 'qr', 'qrscan', 'saving', 'done'];
+  const fi2 = O.state === 'done' ? 9 : O.state === 'wrapping' ? 0 : O.state === 'saving' && done === 4 ? 2 : fin.findIndex(f => f[0] === O.state);
+  html += fin.map(([k, l], i) => `<div class="tk ${done < 4 ? '' : i < fi2 ? 'done' : i === fi2 ? 'cur' : ''}"><i></i>${l}</div>`).join('');
+  document.getElementById('taskList').innerHTML = html;
+  document.getElementById('opDone').classList.toggle('on', O.state === 'done' && !isXR());
+  drawInstrPanel();
+}
+function drawInstrPanel() {
+  const [t, d] = instrText(), c = instrCv.c; c.clearRect(0, 0, 1024, 420);
+  c.fillStyle = 'rgba(9,18,31,.9)'; RR(c, 4, 4, 1016, 412, 26); c.fill(); c.strokeStyle = 'rgba(58,160,255,.5)'; c.lineWidth = 3; c.stroke();
+  T(c, document.getElementById('instrN').textContent, 36, 58, 28, '#3aa0ff', 600, 'left', MONO);
+  T(c, t, 36, 110, 44, '#fff', 700);
+  c.font = `400 31px ${FONT}`; c.fillStyle = '#cfe0f0'; let line = '', y = 162;
+  for (const w of d.split(' ')) { if (c.measureText(line + w).width > 950) { c.fillText(line, 36, y); y += 42; line = ''; } line += w + ' '; } c.fillText(line, 36, y);
+  if (toast.until > performance.now()) { c.fillStyle = 'rgba(255,176,32,.18)'; RR(c, 24, 350, 976, 52, 12); c.fill(); T(c, lastToast, 512, 386, 28, '#ffcf70', 600, 'center'); }
+  instrCv.tex.needsUpdate = true;
+}
+
+/* ---------- enter / exit ---------- */
+async function enterOpMode() {
+  for (const c of ctrls) c.held = null; desk.held = null; desk.scanner = false;
+  opMode = true; resetWorld(); resetO();
+  freeCam = false; controls.enabled = false;
+  op.root.visible = false; tags.visible = false; hotGroup.visible = true; rollStand.visible = true;
+  filmRoll.visible = false; scene.add(filmRoll); filmRoll.position.set(PAL_XZ[0] + 1.15, .73 + .16, PAL_XZ[1] + 1.05); filmRoll.rotation.set(0, 0, 0);
+  rig.position.set(-1.6, 0, -2.85); player.yaw = -PI / 2; player.pitch = -.08; rig.rotation.set(0, 0, 0);
+  camera.position.set(0, 1.62, 0); camera.rotation.set(-.12, 0, 0);
+  document.getElementById('hud').classList.remove('on'); document.getElementById('opHud').classList.add('on');
+  document.getElementById('opSlot').appendChild(vrBtn);
+  refreshInstr();
+  S.mode = 'idle'; scrDirty = true; await wait(1.4).catch(() => {});
+  if (!opMode) return;
+  S.erpBusy = true; dirtyAll(); sfx.data();
+  try { await runAlong(erpCurve, 1, 1.8, { tag: 'XML · Lot + Reçete', size: .3 }); } catch { return; }
+  S.erpBusy = false; erpLog('Gönderildi: LOT 26-1042 / RC-0417'); S.mode = 'lots'; dirtyAll(); sfx.ok(); O.state = 'lot'; refreshInstr();
+}
+function exitOpMode() {
+  if (isXR()) renderer.xr.getSession()?.end();
+  for (const c of ctrls) c.held = null; desk.held = null; desk.scanner = false;
+  opMode = false; hotGroup.visible = false; rollStand.visible = false; hint.visible = false; tipSprite.visible = false; instrPanel.visible = false; op.root.visible = true; tags.visible = document.getElementById('bTags').classList.contains('on');
+  document.exitPointerLock?.();
+  rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); camera.rotation.set(0, 0, 0);
+  document.getElementById('opHud').classList.remove('on'); document.getElementById('opDone').classList.remove('on'); document.getElementById('vrSlot').appendChild(vrBtn);
+  document.getElementById('hud').classList.add('on'); camS.p0.set(9.5, 10.5, 12.5); camS.k = 1; playing = true; sim.paused = false; updatePlayIcon(); jumpTo(0, true);
+}
+renderer.xr.addEventListener('sessionstart', () => {
+  if (!opMode) return;
+  document.getElementById('opHud').classList.remove('on'); instrPanel.visible = true;
+  // move the desktop-held objects into the controllers
+  const heldObj = desk.held; const sc = desk.scanner;
+  desk.held = null; desk.scanner = false;
+  const [right, left] = [ctrls.find(c => c.handed === 'right') || ctrls[0], ctrls.find(c => c.handed === 'left') || ctrls[1]];
+  if (sc) attachHeld(scanner, left); if (heldObj) attachHeld(heldObj, right);
+  const p = rig.position.clone(); rig.position.set(p.x, 0, p.z); rig.rotation.set(0, player.yaw, 0); camera.rotation.set(0, 0, 0);
+  refreshInstr();
+});
+renderer.xr.addEventListener('sessionend', () => {
+  if (!opMode) return;
+  document.getElementById('opHud').classList.add('on'); instrPanel.visible = false; tipSprite.visible = false;
+  for (const c of ctrls) { if (c.held) { const o = c.held; c.held = null; if (o === scanner) { attachHeld(o, desk); } else if (!desk.held) attachHeld(o, desk); else returnToRest(o); } }
+  camera.position.set(0, 1.62, 0); refreshInstr();
+});
+
+/* ---------- desktop input ---------- */
+const cvs = renderer.domElement;
+cvs.addEventListener('contextmenu', e => { if (opMode) e.preventDefault(); });
+cvs.addEventListener('mousedown', e => {
+  if (!opMode || isXR()) return;
+  if (!player.locked) {
+    const r = cvs.getBoundingClientRect(); player.mouse.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    player.drag = { x: e.clientX, y: e.clientY, moved: false, btn: e.button }; return;
+  }
+  if (e.button === 0) { desk.trigger = true; onTrigger(desk); } else if (e.button === 2) onGrip(desk);
+});
+addEventListener('mousemove', e => {
+  if (!opMode || isXR()) return;
+  if (player.locked) { player.yaw -= e.movementX * .0022; player.pitch = Math.max(-1.35, Math.min(1.2, player.pitch - e.movementY * .0022)); return; }
+  const r = cvs.getBoundingClientRect(); player.mouse.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  const d = player.drag; if (d && d.btn === 0) { const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true; if (d.moved) { player.yaw -= dx * .004; player.pitch = Math.max(-1.35, Math.min(1.2, player.pitch - dy * .004)); d.x = e.clientX; d.y = e.clientY; } }
+});
+addEventListener('mouseup', e => {
+  if (!opMode || isXR()) return;
+  if (player.locked) { if (e.button === 0) desk.trigger = false; return; }
+  const d = player.drag; player.drag = null; desk.trigger = false;
+  if (d && !d.moved) { if (d.btn === 0) onTrigger(desk); else if (d.btn === 2) onGrip(desk); }
+});
+let holdTrig = false;   // unlocked mode: hold left mouse (without moving) also pours
+cvs.addEventListener('pointerdown', e => { if (opMode && !player.locked && e.button === 0) { holdTrig = true; desk.trigger = true; } });
+addEventListener('pointerup', () => { holdTrig = false; if (!player.locked) desk.trigger = false; });
+document.addEventListener('pointerlockchange', () => { player.locked = document.pointerLockElement === cvs; document.getElementById('cross').classList.toggle('on', player.locked); });
+addEventListener('keydown', e => {
+  if (!opMode) return; player.keys[e.code] = true;
+  if (e.code === 'KeyE' || e.code === 'KeyF') onGrip(desk);
+  if (e.code === 'Space') { e.preventDefault(); if (!desk.trigger) { desk.trigger = true; onTrigger(desk); } }
+  if (e.code === 'KeyL' && !player.locked) cvs.requestPointerLock?.();
+});
+addEventListener('keyup', e => { if (!opMode) return; player.keys[e.code] = false; if (e.code === 'Space') desk.trigger = false; });
+document.getElementById('opExit').onclick = exitOpMode;
+document.getElementById('opDoneExit').onclick = exitOpMode;
+document.getElementById('opAgain').onclick = () => { document.getElementById('opDone').classList.remove('on'); for (const c of ctrls) c.held = null; desk.held = null; desk.scanner = false; enterOpMode(); };
+document.getElementById('lockBtn').onclick = () => cvs.requestPointerLock?.();
+
+/* ======================================================================
+   Main loop
+   ====================================================================== */
+let last = performance.now();
+const tmpV = new THREE.Vector3();
+let opFade = 1; const opMats = new Set();
+op.root.traverse(o => { if (o.isMesh) opMats.add(o.material); });
+const frame = now => {
+  const realDt = Math.min(.05, (now - last) / 1000); last = now;
+  const dt = sim.paused ? 0 : realDt * sim.speed * sim.mul;
+  sim.time += dt; processTweens();
+  op.update(dt, realDt); updatePowder(dt);
+  if (opMode) updateOp(dt, realDt);
+  else {
+    const hp = op.head.getWorldPosition(tmpV), dh = camera.position.distanceTo(hp), db = camera.position.distanceTo(hp.setY(1.05));
+    const want = Math.min(dh, db) < .9 ? 0 : 1; opFade += (want - opFade) * Math.min(1, realDt * 8);   // only when the camera is practically inside him
+    const tr = opFade < .985;
+    for (const m of opMats) { m.opacity = opFade; m.depthWrite = !tr; if (m.transparent !== tr) { m.transparent = tr; m.needsUpdate = true; } }
+  }
+  updateCamera(realDt, now);
+  if (freeCam) controls.update();
+  const t = now / 1000;
+  setBeacon(T1beacon, S.b1, t); setBeacon(T2beacon, S.b2, t);
+  if (guide.visible) { arrow.position.y += Math.sin(t * 4) * .002; ring.material.opacity = .45 + Math.sin(t * 5) * .25; }
+  erpLeds.forEach((l, i) => l.material.color.setHex(Math.sin(t * 3 + i * 1.7) > .2 || S.erpBusy && Math.sin(t * 20 + i) > 0 ? 0x3aa0ff : 0x0b2a4a));
+  printerLed.material.color.setHex(movers.length ? 0xffb020 : 0x22c55e);
+  holoMesh.position.y = 3.25 + Math.sin(t * 1.2) * .04;
+  if (laser.visible && laserTarget) {
+    const a = scanTip.getWorldPosition(new THREE.Vector3()), b = laserTarget.getWorldPosition(tmpV);
+    laser.geometry.setFromPoints([a, b]); laserDot.position.copy(b);
+  }
+  const camY = renderer.xr.isPresenting ? 1 : camera.position.y;
+  ceiling.visible = camY < RH;
+  for (const sp of tags.children) { const d = sp.position.distanceTo(camera.position); sp.scale.copy(sp.userData.base).multiplyScalar(Math.min(2.4, Math.max(.3, d * .1))); }
+  if (scrDirty || S.mode === 'idle' || S.mode === 'scan') { drawScreen(now); scrDirty = false; }
+  if (dispDirty) { drawDisplays(); dispDirty = false; }
+  if (holoDirty) { drawHolo(); holoDirty = false; }
+  renderer.render(scene, camera);
+};
+renderer.setAnimationLoop(frame);
+
+/* ======================================================================
+   Boot
+   ====================================================================== */
+// image-based light: full reflections on metals, only a little diffuse fill on everything else (the panels light the room)
+scene.traverse(o => { const m = o.material; if (o.isMesh && m && 'envMapIntensity' in m && !m.isMeshBasicMaterial && !m.userData.keepEnv) m.envMapIntensity = m.metalness > .5 ? 1.1 : .35; });
+/* One-time local reflection probe of the booth (re-taken whenever loading finishes): steel, glass and the epoxy then mirror
+   the white room and its LED panels instead of the factory hall. No per-frame cost, so it is used in VR too. */
+let boothEnv = null;
+function bakeBoothEnv() {
+  const rt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType }), cc = new THREE.CubeCamera(.05, 40, rt);
+  cc.position.set(RCX, 1.3, RCZ);
+  const hide = [op.root, tags, guide, floorReflector, hotGroup, holoMesh, powder, laser, laserDot, opShadow, rollStand, hint, tipSprite, instrPanel];
+  const vis = hide.map(o => o.visible); hide.forEach(o => o.visible = false);
+  const cv = ceiling.visible, ei = M.hepa.emissiveIntensity; ceiling.visible = true; M.hepa.emissiveIntensity = 7;
+  scene.add(cc); cc.update(renderer, scene); scene.remove(cc);
+  M.hepa.emissiveIntensity = ei; ceiling.visible = cv; hide.forEach((o, i) => o.visible = vis[i]);
+  const env = pmrem.fromCubemap(rt.texture).texture; rt.dispose();
+  const p = new THREE.Vector3();
+  scene.traverse(o => {
+    if (!o.isMesh || !o.material || o.material.isMeshBasicMaterial || !('envMap' in o.material) || o.material.isShaderMaterial || o.material === M.glassRefl) return;
+    o.getWorldPosition(p); if (p.x < RX0 - .15 || p.x > RX1 + .15 || p.z < RZ0 - .15 || p.z > RZ1 + .15 || p.y > RH + .2) return;
+    if (o.material.envMap !== env) { o.material.envMap = env; o.material.needsUpdate = true; }
+  });
+  boothEnv?.dispose(); boothEnv = env;
+}
+let bakeT = 0;
+THREE.DefaultLoadingManager.onLoad = () => { clearTimeout(bakeT); bakeT = setTimeout(bakeBoothEnv, 200); };
+for (const o of movables) o.userData.init = { parent: o.parent, pos: o.position.clone(), quat: o.quaternion.clone(), scale: o.scale.clone(), visible: o.visible };
+resetWorld();
+$('loading').textContent = 'Hazır';
+$('startBtn').onclick = () => {
+  actx ??= new AudioContext();
+  $('intro').style.transition = 'opacity .6s'; $('intro').style.opacity = 0; setTimeout(() => $('intro').remove(), 650);
+  $('hud').classList.add('on'); playing = true; sim.paused = false; updatePlayIcon(); jumpTo(0, true);
+};
+function leaveIntro() { actx ??= new AudioContext(); $('intro').style.transition = 'opacity .6s'; $('intro').style.opacity = 0; setTimeout(() => $('intro').remove(), 650); }
+$('opBtn').onclick = () => { leaveIntro(); enterOpMode(); };
+$('bOp').onclick = () => { abortAll(); speechSynthesis?.cancel(); enterOpMode(); };
+window.__sim = { RIG, op, jumpTo, STEPS, S: () => S, sim, O: () => O, enterOpMode, desk, onTrigger, onGrip, player, camera, hotspots, screenMesh, scanner, sackA, sackWrong, cont1, cup2, jarB, T1tare, T1btn, T2tare, T2btn, prodLabels, batchPallet, filmRoll, qrLabel, T1, T2, scrHits, teleport, sehpa, shelf, controls, floorReflector, renderer, tweens, speakingState: () => speaking, tick: (n = 1, ms = 33) => { for (let i = 0; i < n; i++) frame(last + ms); }, THREE, scene, raycaster, scanLabels, hitList: (...a) => hitList(...a), GRABS, grabbable: o => grabbable(o) };
+</script>
+</body>
+</html>
